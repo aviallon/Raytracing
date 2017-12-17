@@ -158,10 +158,14 @@ void Allegro::setCursorVisibility(bool visible){
 
 void Allegro::setStickCursorToCenter(bool stick){
 	cursorSticked = stick;
-	if(stick)
+	if(stick){
+		al_set_mouse_xy(display, al_get_display_height(display)/2, al_get_display_width(display)/2);
+		al_inhibit_screensaver(true);
 		al_grab_mouse(display);
-	else
+	}else{
+		al_inhibit_screensaver(false);
 		al_ungrab_mouse();
+	}
 }
 
 // LIGNE
@@ -251,9 +255,26 @@ void Allegro::flipDisplay(){
 	al_flip_display();
 }
 
+int Allegro::getDisplayWidth(){
+	return al_get_display_width(display);
+}
+
+int Allegro::getDisplayHeight(){
+	return al_get_display_height(display);
+}
+
+void Allegro::toggleFullscreen(bool activate){
+	al_toggle_display_flag(display, ALLEGRO_FULLSCREEN_WINDOW, activate);
+}
+
+bool Allegro::isInFullscreen(){
+	return (al_get_display_flags(display) & ALLEGRO_FULLSCREEN_WINDOW);
+}
+
 int Allegro::createWindow(float FPS, int width, int height)
 {
-	//al_set_new_display_flags(ALLEGRO_FULLSCREEN);
+	//al_set_new_display_flags(ALLEGRO_FULLSCREEN_WINDOW);
+	al_set_new_display_flags(ALLEGRO_RESIZABLE | ALLEGRO_WINDOWED);
     display = al_create_display(width, height);
     if (!display)
     {
@@ -332,7 +353,11 @@ void Allegro::gameLoop()
         ALLEGRO_EVENT ev;
         al_wait_for_event(event_queue, &ev);
 		
-		if(ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
+		if(ev.type == ALLEGRO_EVENT_DISPLAY_RESIZE){
+			al_acknowledge_resize(display);
+			//WIDTH = getDisplayWidth();
+			//HEIGHT = getDisplayHeight();
+		} else if(ev.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) {
 			mouse.setBtn(ev.mouse.button);
 			_exec_mouse_clicked_function();
 		}

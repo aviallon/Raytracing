@@ -3,12 +3,12 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_primitives.h>
 #include <cmath>
+#include <numeric>
 
 #ifndef STRING_H_
 #define STRING_H_
 #include <string.h>
 #include <sstream>
-#include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #endif
 
@@ -23,8 +23,17 @@
 #define MIN(a, b) (((a < b))?(a):(b))
 #define PI 3.14159265359
 
-#define WIDTH 500
-#define HEIGHT 500
+//#define WIDTH 500
+//#define HEIGHT 500
+
+const signed int WIDTH = 500;
+const signed int HEIGHT = 500;
+
+signed int width_offset = 0;
+
+bool high_fps_mode = false;
+
+std::vector<int> renderTimeAverage = std::vector<int>(5);
 
 #include "allegro.h"
 #include "raytracer.h"
@@ -108,12 +117,14 @@ void redraw(Allegro* allegro, float FPS)
 //		}
 //	}
 	Color pixel;
-	for(int x=0;x<WIDTH;x++){
-		for(int y=0;y<HEIGHT;y++){
+	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
+		high_fps_mode = true;
+	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
+		for(int y=0;y<allegro->getDisplayWidth();y++){
 			//pixel = getPixelColor(x, y, world_ptr, camera);
 			pixel = Color(10,10,10);
 			Vec pI(INFINITY, INFINITY, INFINITY);
-			Vec ptemp = light.intersect(camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet, 0+world2.offset_z+world2.roulis));
+			Vec ptemp = light.intersect(camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis));
 			Impact impact(Vec(), 0);
 			if(ptemp.nonVec != true){
 				pixel = light.color*(1000/(ptemp-camera).len());
@@ -121,12 +132,13 @@ void redraw(Allegro* allegro, float FPS)
 				for(unsigned int i=0;i<world2.size();i++){
 					double dt = 0;
 					bool shadow = false;
-					ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x, y+world2.offset_y, 0+world2.offset_z));
+					ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis));
 					if((ptemp.nonVec != true && (ptemp-camera).len() < (pI-camera).len())){
 						pI = ptemp;
 						Vec L = light.ct - pI;
 						
-						shadow = shadowRay(pI, L, world2, light, i);
+						if(!high_fps_mode)
+							shadow = shadowRay(pI, L, world2, light, i);
 						//const bool shadow = false;
 						
 						if(shadow){
@@ -147,10 +159,19 @@ void redraw(Allegro* allegro, float FPS)
 	allegro->unlockScreen();
 	
 	stringstream fps_disp;
-	fps_disp << fps(t, getms()) << " FPS\0";
+	
+	renderTimeAverage.push_back((getms() - t));
+	renderTimeAverage.erase(renderTimeAverage.begin());
+	
+	fps_disp << fps(renderTimeAverage) << " FPS\0";
 	
 	allegro->draw_text(30, 10, fps_disp.str(), allegro->rgb(255, 255, 255));
 	
+	
+	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
+	//cout << allegro->getDisplayHeight() << ", " << allegro->getDisplayWidth() << endl;
+	//WIDTH = allegro->getDisplayWidth();
+	//HEIGHT = allegro->getDisplayHeight();
 }
 
 void mouseMove(Allegro* allegro, void* context, unsigned char event, int x, int y){
@@ -178,6 +199,15 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 			case ALLEGRO_KEY_ESCAPE:
 				allegro->setStickCursorToCenter(false);
 				allegro->setCursorVisibility(true);
+				high_fps_mode = false;
+				allegro->toggleFullscreen(false);
+				break;
+			case ALLEGRO_KEY_F:
+				//cout << (allegro->isKeyDown(ALLEGRO_KEY_ALT) &&  allegro->isKeyDown(ALLEGRO_KEY_LCTRL)) << endl;
+				//flush(cout);
+				if(allegro->isKeyDown(ALLEGRO_KEY_ALT) &&  allegro->isKeyDown(ALLEGRO_KEY_LCTRL)){
+					allegro->toggleFullscreen(true);
+				}
 				break;
 			case ALLEGRO_KEY_UP:
 				world->offset_z += 5;
@@ -226,12 +256,13 @@ int main(int argc, char **argv)
 	Allegro allegro_obj = Allegro();
 	Allegro* allegro = &allegro_obj;
     allegro->init();
-    allegro->createWindow(30, HEIGHT, WIDTH);
+    allegro->createWindow(60, HEIGHT, WIDTH);
 	
 	allegro->setStickCursorToCenter(true);
 	allegro->setCursorVisibility(false);
 	
 	World world;
+	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	world.light = Sphere(Vec(150, HEIGHT/2-80, 20), 5, Color(255, 255, 255));
 	allegro->setContext(&world);
 

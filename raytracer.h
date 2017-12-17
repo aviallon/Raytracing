@@ -12,8 +12,9 @@ int getms(){
 	).count();
 }
 
-const float fps(const int t1, const int t2){
-	return floor(10000/(float)(t2 - t1))/10;
+const float fps(std::vector<int> renderTimeAverage){
+	float average = std::accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size();
+	return floor(10000/average)/10;
 }
 
 class Vec {
@@ -158,6 +159,7 @@ public:
 	}
 	
 	Vec intersect(Vec o, Vec d){
+		return Vec(true);
 		Vec d_o = d-o;
 		
 		/** A OBSERVER ET TRAVAILLER !!! */
@@ -170,7 +172,7 @@ public:
 		double _d = -(n.dot(a));
 		if (n.dot(d_o.normalize()) != 0){
 			float k = (n.dot(o)+_d)/(n.dot(d_o));;
-			if(k<0){
+			if(k<0){ // WTF il se passe des trucs étranges ici
 				return Vec(true);
 			}
 			return d_o*k+o;
@@ -388,7 +390,9 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 
 bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
 	for(unsigned int obst=0;obst<world.size();obst++){
-		if (obst == (unsigned)i || world.getType(i)==Obj::PLAN){
+		if(world.getType(i)==Obj::PLAN)
+			break;
+		if (obst == (unsigned)i || world.getType(obst)==Obj::PLAN){
 			continue;
 		}
 		Vec pObstacle = world.intersect(obst, pI, light.ct);

@@ -130,6 +130,12 @@ public:
 	void setContext(void* cont);
 	void* getContext();
 	
+	int getDisplayWidth();
+	int getDisplayHeight();
+	
+	void toggleFullscreen(bool activate);
+	bool isInFullscreen();
+	
 	static void _undefined_(Allegro* master, void* context, unsigned char event, int x, int y);
 	static void _undefined_(Allegro* master, void* context, unsigned char event, uint8_t keycode);
 	static void _undefined_(Allegro* master, float FPS);
