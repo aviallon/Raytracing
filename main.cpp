@@ -58,19 +58,84 @@ ALLEGRO_COLOR colorToAllegro(Color color){
 	return Allegro::rgbS(color._r, color._g, color._b);
 }
 
-int8_t sens = 1;
+//int8_t sens = 1;
+//int8_t sens2 = 2;
+void rotateSphere(Sphere* sphere, Vec axis, float angle_deg, int r){
+	float angle = PI*float(angle_deg)/180;
+	//Vec Er = Vec(cos(angle), sin(angle), 0.0);
+	//Vec Etheta = Vec(-sin(angle), cos(angle), 0.0);
+	//Vec Ez = Vec(0, 0, 1);
+	//const int x = sphere->ct._x;
+	//const int y = sphere->ct._y;
+	const float z = axis._x;
+	
+	float x = r*sin(angle)+cos(angle)+axis._z;
+	float y = r*cos(angle)-sin(angle)+axis._y;
+	
+	Vec nouv_ct = Vec(z, y,x );
+	
+	sphere->ct = nouv_ct;
+}
+
+void angleInc(float* angle, float i){
+	if((*angle)>=360){
+		*angle = 0;
+	}
+	*angle += i;
+}
+
+float angleMercure = 0;
+float angleVenus = 0;
+float angleTerre = 0;
+float angleLune = 0;
+float angleMars = 0;
+
+float jour = 0;
 
 void animate(Allegro* allegro, float FPS){
 	World* world_ptr = (World*)allegro->getContext();
-	Sphere* sp1 = ((Sphere*)world_ptr->getObject(0));
+	
+	
+	Sphere* mercure = ((Sphere*)world_ptr->getObject(0));
+	Sphere* venus = ((Sphere*)world_ptr->getObject(1));
+	Sphere* terre = ((Sphere*)world_ptr->getObject(2));
+	Sphere* lune = ((Sphere*)world_ptr->getObject(3));
+	Sphere* mars = ((Sphere*)world_ptr->getObject(4));
 	
 	/* Animation */
 	
-	if(sp1->ct._x > WIDTH-4*sp1->r && sens != -1)
+	/*if(sp1->ct._x > WIDTH-4*sp1->r && sens != -1)
 		sens = -1;
 	if(sp1->ct._x < sp1->r && sens != 1)
 		sens = 1;
-	sp1->ct._x += sens;
+	sp1->ct._x += sens;*/
+	const int vRef = 2; // coefficient pour accelerer le mouvement des planetes
+	const int rRef = 83.23*world_ptr->light.r / 10; // on divise par 10 les rayons réels afin de pouvoir voir toutes les planètes
+	//const int rayon_mercure = 57909176; // juste pour infon
+	
+	rotateSphere(mercure, world_ptr->light.ct, angleMercure, rRef);
+	rotateSphere(venus, world_ptr->light.ct, angleVenus, rRef*1.868597301);
+	rotateSphere(terre, world_ptr->light.ct, angleTerre, rRef*2.583319214);
+	rotateSphere(lune, terre->ct, angleLune, rRef*0.552537013);
+	rotateSphere(mars, world_ptr->light.ct, angleMars, rRef*3.936105687);
+	
+	angleInc(&angleMercure, vRef*26.275761202/FPS); // vitesse angulaire en degré par jour
+	angleInc(&angleVenus, vRef*10.066286396/FPS);
+	angleInc(&angleTerre, vRef*0.985452303/FPS);
+	angleInc(&angleLune, vRef*82.647771429/FPS);
+	angleInc(&angleMars, vRef*3.284567544/FPS);
+	
+	if(jour >= 365){
+		jour = 0;
+	}
+	jour += vRef/FPS;
+	//cout << angle << endl;
+	
+	/*if(sp2->ct._y > 100 && sens2 != -1)
+		sens2 = -1;
+	if(sp2->ct._y < 0 && sens != 1)
+		sens2 = 1;
+	sp2->ct._y += sens2;*/
 	
 	/* Fin animation */
 }
@@ -117,8 +182,9 @@ void redraw(Allegro* allegro, float FPS)
 //		}
 //	}
 	Color pixel;
-	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
-		high_fps_mode = true;
+	//if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
+	//	high_fps_mode = true;
+	//#pragma omp target teams distribute parallel for map(from:pixelgrid[0:100])
 	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
 		for(int y=0;y<allegro->getDisplayWidth();y++){
 			//pixel = getPixelColor(x, y, world_ptr, camera);
@@ -127,29 +193,31 @@ void redraw(Allegro* allegro, float FPS)
 			Vec ptemp = light.intersect(camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis));
 			Impact impact(Vec(), 0);
 			if(ptemp.nonVec != true){
-				pixel = light.color*(1000/(ptemp-camera).len());
-			}else{
-				for(unsigned int i=0;i<world2.size();i++){
-					double dt = 0;
-					bool shadow = false;
-					ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis));
-					if((ptemp.nonVec != true && (ptemp-camera).len() < (pI-camera).len())){
-						pI = ptemp;
-						Vec L = light.ct - pI;
-						
-						if(!high_fps_mode)
-							shadow = shadowRay(pI, L, world2, light, i);
-						//const bool shadow = false;
-						
-						if(shadow){
-							dt = 0.01f;
-						} else {
-							Vec N = world2.getNormale(i, pI);
-							dt = (L.normalize().dot(N));
-						}
-						
-						pixel = world2.getColor(i, pI).mix(light.color)*dt;
+				pI = ptemp;
+				pixel = light.color*(100000/(ptemp-camera).len());
+			}
+			//}else{
+			bool shadow = false;
+			for(unsigned int i=0;i<world2.size();i++){
+				double dt = 0;
+				shadow = false;
+				ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis));
+				if((ptemp.nonVec != true && (ptemp-camera).len() < (pI-camera).len())){
+					pI = ptemp;
+					Vec L = light.ct - pI;
+					
+					if(!high_fps_mode)
+						shadow = shadowRay(pI, L, world2, light, i);
+					//const bool shadow = false;
+					
+					if(shadow){
+						dt = 0.01f;
+					} else {
+						Vec N = world2.getNormale(i, pI);
+						dt = (L.normalize().dot(N));
 					}
+					
+					pixel = world2.getColor(i, pI).mix(light.color)*dt;
 				}
 			}
 			allegro->set_pixel(y, x, allegro->rgb(pixel._r, pixel._g, pixel._b));
@@ -166,6 +234,11 @@ void redraw(Allegro* allegro, float FPS)
 	fps_disp << fps(renderTimeAverage) << " FPS\0";
 	
 	allegro->draw_text(30, 10, fps_disp.str(), allegro->rgb(255, 255, 255));
+	
+	stringstream jourstr;
+	jourstr << "Jour " << (int)jour;
+	
+	allegro->draw_text(30, 30, jourstr.str(), allegro->rgb(255, 255, 255));
 	
 	
 	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
@@ -199,7 +272,6 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 			case ALLEGRO_KEY_ESCAPE:
 				allegro->setStickCursorToCenter(false);
 				allegro->setCursorVisibility(true);
-				high_fps_mode = false;
 				allegro->toggleFullscreen(false);
 				break;
 			case ALLEGRO_KEY_F:
@@ -263,17 +335,30 @@ int main(int argc, char **argv)
 	
 	World world;
 	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
-	world.light = Sphere(Vec(150, HEIGHT/2-80, 20), 5, Color(255, 255, 255));
+	world.light = Sphere(Vec(WIDTH/2, HEIGHT/2, 50), 50, Color(200, 255, 255));
 	allegro->setContext(&world);
 
-	world.addObject(Sphere(Vec(WIDTH/2, HEIGHT/2, 10), 20, Color(255, 255, 5)));
-	world.addObject(Sphere(Vec(WIDTH/2-30, HEIGHT/2-100, 50), 30, Color(0, 255, 100)));
-	world.addObject(Sphere(Vec(210, 220, 10), 6, Color(255, 255, 255)));
-	world.addObject(Sphere(Vec(300, 150, 80), 20, Color(0, 200, 255)));
-	world.addObject(Sphere(Vec(230, 180, -300), 5, Color(200, 10, 140)));
+	const int rayon_planetes = 30*world.light.r;
+
+	//Mercure
+	world.addObject(Sphere(Vec(), 0.00701308*rayon_planetes, Color(100, 100, 100)));
+	
+	//Vénus
+	world.addObject(Sphere(Vec(), 0.017396866*rayon_planetes, Color(200, 250, 200)));
+	
+	//Terre
+	world.addObject(Sphere(Vec(), 0.018335489*rayon_planetes, Color(0, 50, 255)));
+	
+	//Lune
+	world.addObject(Sphere(Vec(), 0.002496766*rayon_planetes, Color(100, 100, 100)));
+	
+	//Mars
+	world.addObject(Sphere(Vec(), 0.009762829*rayon_planetes, Color(255, 100, 100)));
+	//world.addObject(Sphere(Vec(300, 150, 80), 20, Color(0, 200, 255)));
+	//world.addObject(Sphere(Vec(230, 180, -300), 5, Color(200, 10, 140)));
 	//for(int bla = 0;bla<=10;bla++)
 	//	world.addObject(Sphere(Vec(20, 600-10*bla, 150*bla), 7, Color(100, 20*bla, 200)));
-	world.addObject(Plan(Vec(WIDTH+50, 0, 0), Vec(1, 0, 0), Color(255, 255, 255), true));
+	//world.addObject(Plan(Vec(WIDTH+50, 0, 0), Vec(1, 0, 0), Color(255, 255, 255), true));
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);

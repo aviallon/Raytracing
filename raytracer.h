@@ -159,7 +159,6 @@ public:
 	}
 	
 	Vec intersect(Vec o, Vec d){
-		return Vec(true);
 		Vec d_o = d-o;
 		
 		/** A OBSERVER ET TRAVAILLER !!! */
@@ -369,6 +368,7 @@ struct Impact{
 Impact getNearestImpact(Vec o, Vec d, World& world){
 	Vec nearestImpact(INFINITY, INFINITY, INFINITY);
 	int objId = -1;
+	#pragma omp parallel for
 	for(uint j=0;j<world.size();j++){
 		Vec impact = world.intersect(j, o, d);
 		Vec d_o = d - o;
@@ -389,10 +389,9 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 }
 
 bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
+	return false;
 	for(unsigned int obst=0;obst<world.size();obst++){
-		if(world.getType(i)==Obj::PLAN)
-			break;
-		if (obst == (unsigned)i || world.getType(obst)==Obj::PLAN){
+		if (obst == (unsigned)i || world.getType(i)==Obj::PLAN){
 			continue;
 		}
 		Vec pObstacle = world.intersect(obst, pI, light.ct);
