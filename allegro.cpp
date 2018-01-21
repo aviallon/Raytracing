@@ -318,7 +318,7 @@ int Allegro::createWindow(float FPS, int width, int height)
 	size_t arial_size = (size_t)((void *)arial_data_size);
 	
 	arial_file = al_open_memfile(arial_data, (int64_t)arial_size, "r");
-	default_font = al_load_ttf_font_f(arial_file, NULL, 12, NULL);
+	default_font = al_load_ttf_font_f(arial_file, 0, 12, 0);
 	
 	/* yep, the font file is embeded in the executable at link time :D */
 	

@@ -29,7 +29,7 @@
 const signed int WIDTH = 500;
 const signed int HEIGHT = 500;
 
-signed int width_offset = 0;
+double vRef = 2;
 
 bool high_fps_mode = false;
 
@@ -60,14 +60,13 @@ ALLEGRO_COLOR colorToAllegro(Color color){
 
 //int8_t sens = 1;
 //int8_t sens2 = 2;
-void rotateSphere(Sphere* sphere, Vec axis, double angle_deg, int r){
+void rotateSphere(Sphere* sphere, Vec point, Vec axis, double angle_deg, int r){
+
 	double angle = PI*angle_deg/180;
 	
-	const double x = axis._x; 
-	double z = r*sin(angle)+cos(angle) + axis._z; // Oui, x est échangé avec z
-	double y = r*cos(angle)-sin(angle) + axis._y;
+	Vec temp = Vec(0, 1, 1)*r; // On crée un point situé à r de l'origine
 	
-	Vec nouv_ct = Vec(x, y, z); // x <--> z
+	Vec nouv_ct = temp.rotate(angle, axis) + point; // On le fait ensuite tourner de "angle" atour de l'axe (sans oublier l'offset du point).
 	
 	sphere->ct = nouv_ct;
 }
@@ -77,7 +76,7 @@ void rotateSphere2Axis(Sphere* sphere, Vec point, double theta, double phi, doub
 	phi = PI*phi/180;
 	
 	
-	Vec er(cos(theta), sin(theta)*sin(phi), sin(theta)*cos(phi));
+	Vec er(cos(theta), sin(theta)*sin(phi), sin(theta)*cos(phi)); // Vecteur unitaire en coordonnées sphériques
 	
 	sphere->ct = er*r + point;
 }
@@ -108,8 +107,7 @@ float jour = 0;
 
 const double fov = (WIDTH/2)/tan(15*PI/180);
 
-Vec camera((double)(WIDTH/2), (double)(HEIGHT/2), -fov);
-
+//std::vector<std::vector<int>> theTest;
 //Sphere cameraSphere = Sphere(camera, 5, Color(0, 0, 0));
 
 void animate(Allegro* allegro, float FPS){
@@ -130,28 +128,24 @@ void animate(Allegro* allegro, float FPS){
 	
 	/* Animation */
 	
-	/*if(sp1->ct._x > WIDTH-4*sp1->r && sens != -1)
-		sens = -1;
-	if(sp1->ct._x < sp1->r && sens != 1)
-		sens = 1;
-	sp1->ct._x += sens;*/
-	const int vRef = 2; // coefficient pour accelerer le mouvement des planetes
+	// coefficient pour accelerer le mouvement des planetes
 	const int rRef = 83.23*world_ptr->light.r / 10; // on divise par 10 les rayons réels afin de pouvoir voir toutes les planètes
 	//const int rayon_mercure = 57909176; // juste pour info
+	Vec axeRotation = Vec(1, 0, 0);
 	
 	rotateSphere2Axis(mercure, world_ptr->light.ct, 90, 90-angleMercure, rRef); // Rotation sphérique :D
-	rotateSphere(venus, world_ptr->light.ct, angleVenus, rRef*1.868597301);
-	rotateSphere(terre, world_ptr->light.ct, angleTerre, rRef*2.583319214);
-	rotateSphere(lune, terre->ct, angleLune, rRef*0.552537013);
-	rotateSphere(mars, world_ptr->light.ct, angleMars, rRef*3.936105687);
-	rotateSphere(jupiter, world_ptr->light.ct, angleJupiter, rRef*pow(13.441946178, 0.8)); // Sinon elle est trop loin
-	rotateSphere(saturne, world_ptr->light.ct, angleSaturne, rRef*pow(24.54152986, 0.8));
-	rotateSphere(uranus, world_ptr->light.ct, angleUranus, rRef*pow(49.675703933, 0.8));
-	rotateSphere(neptune, world_ptr->light.ct, angleNeptune, rRef*pow(77.767358682, 0.8));
+	rotateSphere(venus, world_ptr->light.ct, axeRotation, angleVenus, rRef*1.868597301);
+	rotateSphere(terre, world_ptr->light.ct, axeRotation, angleTerre, rRef*2.583319214);
+	rotateSphere(lune, terre->ct, axeRotation, angleLune, rRef*0.552537013);
+	rotateSphere(mars, world_ptr->light.ct, axeRotation, angleMars, rRef*3.936105687);
+	rotateSphere(jupiter, world_ptr->light.ct, axeRotation, angleJupiter, rRef*pow(13.441946178, 0.8)); // Sinon elle est trop loin
+	rotateSphere(saturne, world_ptr->light.ct, axeRotation, angleSaturne, rRef*pow(24.54152986, 0.8));
+	rotateSphere(uranus, world_ptr->light.ct, axeRotation, angleUranus, rRef*pow(49.675703933, 0.8));
+	rotateSphere(neptune, world_ptr->light.ct, axeRotation, angleNeptune, rRef*pow(77.767358682, 0.8));
 	
 	//rotateSphere2Axis(test, world_ptr->light.ct, angleTest1, angleTest2, rRef*2);
 	
-	//angleInc(&angleTest1, 5/FPS);
+	angleInc(&angleTest1, 2/FPS);
 	//angleInc(&angleTest2, 30/FPS);
 //	rotateSphere(&cameraSphere, world_ptr->light.ct, rotationCamera, 100000);
 //	camera = cameraSphere.ct;
@@ -173,48 +167,45 @@ void animate(Allegro* allegro, float FPS){
 		jour = 0;
 	}
 	jour += vRef/FPS;
-	//cout << angle << endl;
 	
-	/*if(sp2->ct._y > 100 && sens2 != -1)
-		sens2 = -1;
-	if(sp2->ct._y < 0 && sens != 1)
-		sens2 = 1;
-	sp2->ct._y += sens2;*/
 	
-	/* Fin animation */
+	double lacetRad = PI*world_ptr->lacet / 180 + PI/2;
+//	double roulisRad = PI*world_ptr->roulis / 180;
+	
+	double dist = 300;
+	Vec temp = Vec(0, 1, 1)*dist;
+	
+	Vec rotation = temp.rotate2(lacetRad, 0, Vec(1, 0, 0));
+	//Vec rotationLacet = temp.rotate(lacetRad, Vec(1, 0, 0));
+	//Vec rotationRoulis = (Vec(1, 0, 1)*dist).rotate(roulisRad, Vec(0, 1, 0));
+	
+	for (unsigned j = 0; j < 5; j++){
+		for(unsigned i = 0; i<5; i++){
+			Sphere* sp = ((Sphere*)world_ptr->getObject(9+j+i*5));
+			Vec pos = Vec(20*(j-2), 20*(i-2), 0);
+			Vec new_ct = pos.rotate(lacetRad + PI/2, Vec(1, 0, 0))/*.rotate(roulisRad, Vec(0, 1, 0))*/ + rotation + world_ptr->light.ct;
+			//Vec new_ct = sp->ct.rotate(angleTest1, Vec(1, 0, 0)) + (Vec(1, 0, 0)-sp->ct);
+			sp->color = Color(255*sin(angleTest1), 255*cos(angleTest1), 128*cos(angleTest1)-127*sin(angleTest1));
+			sp->ct = new_ct;
+		}
+	}
 }
 
-Vec getVirtualScreenPixel(int x_dec, int y_dec, Vec camera, Allegro* allegro, int width_offset){
-	World* world = (World*)allegro->getContext();
+Vec screenPixRotate(int x, int y, double angle, Vec axis, Vec camera, Allegro* allegro){
 	
-	const int lacet = world->lacet;
-	const float angle_camera = PI*float(lacet)/180;
+	double lacetRad = PI*angle / 180 + PI/2;
 	
-	//const float x = camera._x; // Hauteur de la caméra
+	double dist = fov;
+	Vec temp = Vec(0, 1, 1)*dist;
 	
-	//const float z = fov*sin(angle_camera)+cos(angle_camera)+camera._z;
-	//const float y = fov*cos(angle_camera)-sin(angle_camera)+camera._y;
+	Vec rotation = temp.rotate2(lacetRad, 0, Vec(0, 0, 1));
 	
-	//Vec virtScreenCenter = Vec(x+world->offset_x, y+world->offset_y+width_offset, z+world->offset_z);
+	Vec pos = Vec(x-allegro->getDisplayWidth()/2, y-allegro->getDisplayHeight()/2, 0);
+	Vec new_pos = pos.rotate(lacetRad, Vec(0, 0, 1)) + rotation + camera;
 	
-	const float distance_x = (allegro->getDisplayWidth()/2-x_dec);
-	const float distance_y = (allegro->getDisplayHeight()/2-y_dec);
-	
-	const float angleGD = atan2(distance_x, fov)+angle_camera;
-	
-	const float angleHB = atan2(distance_y, fov);
-	
-	const float r_x = fov;//distance_x/(sin(angleGD))+fov; // distance de la camera au pixel concerné
-	const float r_y = fov;//distance_y/(sin(angleHB))+fov;
-	//const float r = sqrt(r_x*r_x + r_y*r_y);
-	
-	const float x_pixel = -r_x*sin(angleHB) + r_y*cos(angleHB) /*- camera._x*/; // Oui, c'est contre-intuitif
-	
-	const float z_pixel = r_x*sin(angleGD)*cos(angleHB) + r_y*sin(angleGD)*sin(angleHB) - allegro->getDisplayHeight()/2/*- camera._z*/;
-	
-	const float y_pixel = r_x*cos(angleGD)*cos(angleHB) + r_y*cos(angleGD)*cos(angleHB) /*- camera._y*/;
-	
-	return Vec(x_pixel, y_pixel, z_pixel);
+//	angle = PI*angle/180;
+//	return Vec(x, y, 0).rotate(angle, axis) + camera;
+	return new_pos;
 }
 
 void redraw(Allegro* allegro, float FPS)
@@ -229,61 +220,30 @@ void redraw(Allegro* allegro, float FPS)
 	
 	World world2 = *world_ptr;
 
-	Sphere light = world2.light;
 	
-	camera = Vec((double)(WIDTH/2+world2.offset_x), (double)(HEIGHT/2+world2.offset_y), -fov+world2.offset_z);
+	world_ptr->camera = Vec((double)(WIDTH/2+world2.offset_x), (double)(HEIGHT/2+world2.offset_y), -fov+world2.offset_z);
 	
+	
+	//Vec pix = screenPixRotate(x, y, world2.lacet, Vec(0, 1, 0), camera, allegro);
 	// Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis)
 	
-//	PixelGrid pix = pixes[0];
-//	for(int x=0;x<WIDTH;x++){
-//		for(int y=0; y<HEIGHT; y++){
-//			allegro->set_pixel(y, x, allegro->rgb(pix.get(x, y)._r, pix.get(x, y)._g, pix.get(x, y)._b));
-//		}
-//	}
-	//cout << (string)getVirtualScreenPixel(0, 0, camera, allegro, width_offset) << ", ";
-	//cout << (string)Vec(0+world2.offset_x, 0+world2.offset_y+width_offset, 0+world2.offset_z) << endl;
-	//cout << fov << endl;
-	Color pixel;
-	//if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
-	//	high_fps_mode = true;
-	//#pragma omp target teams distribute parallel for map(from:pixelgrid[0:100])
+	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
+		high_fps_mode = true;
+	
+	
+	vector<vector<Color> > screen(allegro->getDisplayHeight(), vector<Color>(allegro->getDisplayWidth()));
+	
+	#pragma omp parallel for collapse(2)
 	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
 		for(int y=0;y<allegro->getDisplayWidth();y++){
-			//pixel = getPixelColor(x, y, world_ptr, camera);
-			pixel = Color(100,100,100);
-			Vec pI(INFINITY, INFINITY, INFINITY);
-			Vec ptemp = light.intersect(camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+width_offset, 0+world2.offset_z+world2.roulis));
-			Impact impact(Vec(), 0);
-			if(ptemp.nonVec != true){
-				pI = ptemp;
-				pixel = light.color/**(100000/(ptemp-camera).len())*/;
-			}
-			//}else{
-			bool shadow = false;
-			for(unsigned int i=0;i<world2.size();i++){
-				double dt = 0;
-				shadow = false;
-				ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+width_offset, 0+world2.offset_z+world2.roulis));
-				if((ptemp.nonVec != true && (ptemp-camera).len() < (pI-camera).len())){
-					pI = ptemp;
-					Vec L = light.ct - pI;
-					
-					if(!high_fps_mode)
-						shadow = shadowRay(pI, L, world2, light, i);
-					//const bool shadow = false;
-					
-					if(shadow){
-						dt = 0.01f;
-					} else {
-						Vec N = world2.getNormale(i, pI);
-						dt = (L.normalize().dot(N)); // cos(L, N)
-					}
-					
-					pixel = world2.getColor(i, pI).mix(light.color)*dt;
-				}
-			}
-			allegro->set_pixel(y, x, allegro->rgb(pixel._r, pixel._g, pixel._b));
+			Vec pix = Vec(x+world2.offset_x, y+world2.offset_y+world2.width_offset, 0+world2.offset_z);
+			screen[x][y] = raytrace(world_ptr, world_ptr->camera, pix);
+		}
+	}
+	
+	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
+		for(int y=0;y<allegro->getDisplayWidth();y++){
+			allegro->set_pixel(y, x, allegro->rgb(screen[x][y]._r, screen[x][y]._g, screen[x][y]._b));
 		}
 	}
 	
@@ -304,13 +264,13 @@ void redraw(Allegro* allegro, float FPS)
 	allegro->draw_text(30, 30, jourstr.str(), allegro->rgb(255, 255, 255));
 	
 	
-	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
+	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 }
 
 void mouseMove(Allegro* allegro, void* context, unsigned char event, int x, int y){
 	World* world = (World*)context;
 	if(event == Allegro::MOUSE_WHEELED)
-		world->offset_x += 2*x;
+		world->offset_x += 3*x;
 	else if(event == Allegro::MOUSE_MOVED_DELTA){
 		//world->lacet += y/2;
 		world->offset_z -= y/2;
@@ -354,16 +314,22 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 				world->offset_y -= 5;
 				break;
 			case ALLEGRO_KEY_D:
-				world->lacet += 10;
+				angleInc(&(world->lacet), 1);
 				break;
 			case ALLEGRO_KEY_Q:
-				world->lacet -= 10;
+				angleInc(&(world->lacet), -1);
 				break;
 			case ALLEGRO_KEY_S:
-				world->roulis += 10;
+				angleInc(&(world->roulis), 1);
 				break;
 			case ALLEGRO_KEY_Z:
-				world->roulis -= 10;
+				angleInc(&(world->roulis), -1);
+				break;
+			case ALLEGRO_KEY_PAD_PLUS:
+				vRef *= 2;
+				break;
+			case ALLEGRO_KEY_PAD_MINUS:
+				vRef /= 2;
 				break;
 				
 		}
@@ -379,8 +345,20 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 			
 		if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
 			world->offset_y -= 5;
+		
+		if(allegro->isKeyDown(ALLEGRO_KEY_D))
+			angleInc(&(world->lacet), 1);
+		
+		if(allegro->isKeyDown(ALLEGRO_KEY_Q))
+			angleInc(&(world->lacet), -1);
+			
+		if(allegro->isKeyDown(ALLEGRO_KEY_S))
+			angleInc(&(world->roulis), 1);
+			
+		if(allegro->isKeyDown(ALLEGRO_KEY_Z))
+			angleInc(&(world->roulis), -1);
 	}
-	camera = Vec((double)(WIDTH/2+world->offset_x), (double)(HEIGHT/2+world->offset_y), -fov+world->offset_z);
+	world->camera = Vec((double)(WIDTH/2+world->offset_x), (double)(HEIGHT/2+world->offset_y), -fov+world->offset_z);
 }
 
 
@@ -395,8 +373,9 @@ int main(int argc, char **argv)
 	allegro->setCursorVisibility(false);
 	
 	World world;
-	width_offset = (WIDTH - allegro->getDisplayWidth())/2;
-	world.light = Sphere(Vec(WIDTH/2, HEIGHT/2, 10000), 60, Color(255, 255, 150));
+	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
+	world.light = Sphere(Vec(WIDTH/2, HEIGHT/2, 0), 60, Color(255, 255, 150));
+	world.camera = Vec((double)(WIDTH/2), (double)(HEIGHT/2), -fov);
 	allegro->setContext(&world);
 
 	const int rayon_planetes = 30*world.light.r;
@@ -428,10 +407,32 @@ int main(int argc, char **argv)
 	//Neptune
 	world.addObject(Sphere(Vec(), 0.073374815/5*rayon_planetes, Color(0, 0, 255))); // Sinon elle est VRAIMENT trop grosse
 	
+	
+	// test rotation
+	
+	
+	for (unsigned j = 0; j < 5; j++){
+		for (unsigned i = 0; i<5; i++){
+			Vec ct = Vec(20.0*j, 20.0*i + 30, -world.light.ct._z).rotate(180, Vec(1, 0, 0));
+			Sphere sp = Sphere(ct, 10, Color(0, 0, 0));
+			//sp.hidden = true;
+			world.addObject(sp);
+		}
+	}
+	
+	// Test overload
+	
+	//for (unsigned i = 0; i<= 50; i++){
+	//	world.addObject(Sphere(Vec(), 10, Color(0, 0, 0)));
+	//}
+	
 	// Test Sphere
 	//world.addObject(Sphere(Vec(), 20, Color(255, 255, 255)));
 	
 	//world.addObject(Plan(Vec(allegro->getDisplayHeight()+10, 0, 0), Vec(1, 0, 0), Color(255, 255, 255), true));
+	
+	//Vec test = (Vec(1, 0, 0) ^ Vec(0, 1, 1)) ^ (Vec(1, 0, 0) ^ Vec(0, 1, 1));
+	//cout << (string)test << endl;
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);

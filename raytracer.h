@@ -57,6 +57,10 @@ public:
 		return Vec((int)(this->_x)%k, (int)(this->_y)%k, (int)(this->_z)%k);
 	}
 	
+	Vec operator^(const Vec& v2){
+		return Vec(this->_y*v2._z - this->_z*v2._y, this->_z*v2._x - this->_z*v2._z, this->_x*v2._y - this->_y*v2._z);
+	}
+	
 	bool operator==(const Vec& v2){
 		if(this->_x==v2._x && this->_y==v2._y && this->_z==v2._z){
 			return true;
@@ -69,12 +73,37 @@ public:
 		return not((*this)==v2);
 	}
 	
+	
 	double dot(const Vec& v2){
 		return (this->_x*v2._x + this->_y*v2._y + this->_z*v2._z);
 	}
 	
 	double len(){
 		return sqrt(this->_x*this->_x+this->_y*this->_y+this->_z*this->_z);
+	}
+	
+	Vec rotate(double angle, Vec axis){
+		Vec moi = *this;
+		
+		axis = axis.normalize();
+		
+		Vec v = moi*cos(angle) + (axis ^ moi)*sin(angle) + axis * (1 - cos(angle))*(moi.dot(axis));
+		
+		return v;
+	}
+	
+	Vec rotate2(double theta, double phi, Vec axis){
+		Vec moi = *this;
+		
+		axis = axis.normalize();
+		
+		Vec axis2 = axis ^ Vec(1, 1, 1);
+		
+		Vec v1 = moi*cos(theta) + (axis ^ moi)*sin(theta) + axis * (1 - cos(theta))*(moi.dot(axis));
+		
+		Vec v2 = v1*cos(phi) + (axis2 ^ v1)*sin(phi) + axis2 * (1 - cos(phi))*(v1.dot(axis2));
+		
+		return v2;
 	}
 	
 	Vec normalize(){
@@ -221,7 +250,9 @@ public:
 	}
 	
 	Vec intersect(Vec o, Vec d){
-		
+		if(hidden){
+			return Vec(true);
+		}
 		Vec d_o = d-o;
 		Vec o_ct = o-ct;
 		double det = -1;
@@ -254,9 +285,22 @@ public:
 		return Vec(true);
 	}
 	
+	Color getColor(Vec pI){
+		
+		if(textured){
+//			Vec M = (pI - ct).normalize();
+//			double theta = acos(M.dot(Vec(1, 0, 0)));
+//			double phi = acos(M.dot(Vec(0, 1, 0)));
+		}
+		
+		return color;
+	}
+	
 	Vec ct;
 	double r, n;
 	Color color;
+	bool hidden = false;
+	bool textured = false;
 };
 
 
@@ -282,14 +326,16 @@ public:
 	}
 	
 	
-	void addObject(Sphere sphere){
+	int addObject(Sphere sphere){
 		spheres.push_back(sphere);
 		indices.push_back(Indices(spheres.size()-1, Obj::SPHERE));
+		return indices.size()-1;
 	}
 	
-	void addObject(Plan plan){
+	int addObject(Plan plan){
 		plans.push_back(plan);
 		indices.push_back(Indices(plans.size()-1, Obj::PLAN));
+		return indices.size()-1;
 	}
 	
 	void* getObject(int i){
@@ -318,7 +364,7 @@ public:
 	
 	Color getColor(int i, Vec p){
 		if(indices[i].obj_type == Obj::SPHERE){
-			return spheres[indices[i].i].color;
+			return spheres[indices[i].i].getColor(p);
 		} else {
 			return plans[indices[i].i].getColor(p);
 		}
@@ -333,14 +379,17 @@ public:
 	}
 	
 	Sphere light = Sphere(Vec(0, 0, 0), 5, Color(255, 255, 255));
+	Vec camera;
 	
 	int offset_x = 0;
 	int offset_y = 0;
 	int offset_z = 0;
 	
-	int tangage = 0;
-	int lacet = 0;
-	int roulis = 0;
+	int width_offset = 0;
+	
+	double tangage = 0;
+	double lacet = 0;
+	double roulis = 0;
 	
 private:
 
@@ -390,7 +439,7 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 
 bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
 	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
-		if(obstacle == i){
+		if((int)obstacle == i){
 			continue;
 		}
 		
@@ -414,91 +463,56 @@ bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
 	return false;
 }
 
-//Color getReflectionColor(Vec pI, Sphere& light, World& world, uint i, unsigned char depth = 0){
-//	Color actColor;
-//	float angle = (pI.normalize().dot(world.getNormale(i, pI)));
-//	std::cout << angle << std::endl;
-//	Impact impact = getNearestImpact(pI, light.ct, world);
-//	
-//	if(impact.noImpact)
-//		return Color(0, 0, 0);
-//	
-//	Vec N = world.getNormale(impact.objectId, impact.impact);
-//	float dt = ((light.ct-pI).normalize().dot(N));
-//	
-//	actColor = world.getColor(impact.objectId, impact.impact).mix(light.color)*dt;
-//	
-//	return actColor;
-//}
-//
-//class PixelGrid{
-//public:
-//	PixelGrid(){
-//		pixels = std::vector<std::vector<Color>>(HEIGHT, std::vector<Color>(WIDTH, Color(0, 0, 0)));
-//	}
-//	
-//	const Color get(int i, int j){
-//		return (this->pixels[i][j]);
-//	}
-//	
-//	void set(int i, int j, Color c){
-//		this->pixels[i][j] = c;
-//	}
-//
-//private:
-//	std::vector<std::vector<Color>> pixels;
-//};
-
-//std::mutex allegro_lock;
-
-/*
-
-PixelGrid raytrace(int x_min, int x_max, World* world, Vec camera){
-	PixelGrid pix;
-	World world2 = *world;
-	Sphere light = world2.light;
-	Color pixel = Color(0,0,0);
-	for(int x=x_min;x<x_max;x++){
-		for(int y=0;y<HEIGHT;y++){
-			pixel = Color(0,0,0);
-			Vec pI(INFINITY, INFINITY, INFINITY);
-			Vec ptemp = light.intersect(camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet, 0+world2.offset_z+world2.roulis));
-			Impact impact(Vec(), 0);
-			if(ptemp.nonVec != true){
-				pixel = light.color*(1000/(ptemp-camera).len());
-			}else{
-				unsigned int i = 0;
-				float dt = 0;
-				for(i=0;i<world2.size();i++){
-					dt = 0;
-					ptemp = world2.intersect(i, camera, Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet, 0+world2.offset_z+world2.roulis));
-					if(ptemp.nonVec != true && (ptemp-camera).len() < (pI-camera).len()){
-						pI = ptemp;
-						Vec L = light.ct - pI;
-						
-						const bool shadow = shadowRay(pI, L, world2, light, i);
-						
-						if(shadow){
-							dt = 0.01f;
-						} else {
-							Vec N = world2.getNormale(i, pI);
-							dt = (L.normalize().dot(N));
-						}
-						
-						pixel = world2.getColor(i, pI).mix(light.color)*dt;
-					}
-				}
+Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
+	const Color bg(100, 100, 100);
+	
+	Sphere light = world->light;
+	
+	Color pixel = bg;
+	Vec pI(INFINITY, INFINITY, INFINITY);
+	Vec ptemp = light.intersect(origine, direction);
+	if(ptemp.nonVec != true){
+		pI = ptemp;
+		pixel = light.color;
+	}
+	bool shadow = false;
+	for(unsigned int i=0;i<world->size();i++){
+		double dt = 0;
+		shadow = false;
+		ptemp = world->intersect(i, origine, direction);
+		Vec ray = (pI-origine);
+		
+		if((ptemp.nonVec != true && (ptemp-origine).len() < ray.len())){
+			pI = ptemp;
+			Vec L = light.ct - pI;
+			
+			if(!high_fps_mode)
+				shadow = shadowRay(pI, L, *world, light, i);
+			
+			Vec N = world->getNormale(i, pI);
+			
+			if(shadow){
+				dt = 0.01f;
+			} else {
+				dt = (L.normalize().dot(N));
 			}
-			pix.set(x, y, pixel);
-			//allegro_lock.lock();
-			//(*allegro).set_pixel(y, x, allegro->rgb(0, 0, 0));
-			//allegro->set_pixel(y, x, allegro->rgb(pixel._r, pixel._g, pixel._b));
-			//allegro_lock.unlock();
+			
+			Color reflection(0, 0, 0);
+			
+			if(depth <= 3){
+				Vec n_ray = ray.normalize().rotate(-PI, N);
+				Vec reflect = n_ray + pI;
+				//if(n_ray.dot(ray.normalize()) > 0){
+					reflection = raytrace(world, pI, reflect*2, depth+1)*(reflect.normalize().dot(N));
+				//}
+			}
+			
+			pixel = world->getColor(i, pI).mix(light.color)*dt + reflection;
 		}
 	}
-	return pix;
+
+	return pixel;
 }
-*/
 
 
 #endif
