@@ -57,6 +57,10 @@ public:
 		return Vec((int)(this->_x)%k, (int)(this->_y)%k, (int)(this->_z)%k);
 	}
 	
+	Vec operator^(const Vec& v2){
+		return Vec(this->_y*v2._z - this->_z*v2._y, this->_z*v2._x - this->_z*v2._z, this->_x*v2._y - this->_y*v2._z);
+	}
+	
 	bool operator==(const Vec& v2){
 		if(this->_x==v2._x && this->_y==v2._y && this->_z==v2._z){
 			return true;
@@ -69,12 +73,23 @@ public:
 		return not((*this)==v2);
 	}
 	
+	
 	double dot(const Vec& v2){
 		return (this->_x*v2._x + this->_y*v2._y + this->_z*v2._z);
 	}
 	
 	double len(){
 		return sqrt(this->_x*this->_x+this->_y*this->_y+this->_z*this->_z);
+	}
+	
+	Vec rotate(double angle, Vec axis){
+		Vec moi = *this;
+		
+		axis = axis.normalize();
+		
+		Vec v = moi*cos(angle) + (axis ^ moi)*sin(angle) + axis * (1 - cos(angle))*(moi.dot(axis));
+		
+		return v;
 	}
 	
 	Vec normalize(){

@@ -60,14 +60,15 @@ ALLEGRO_COLOR colorToAllegro(Color color){
 
 //int8_t sens = 1;
 //int8_t sens2 = 2;
-void rotateSphere(Sphere* sphere, Vec axis, double angle_deg, int r){
+void rotateSphere(Sphere* sphere, Vec point, Vec axis, double angle_deg, int r){
+
 	double angle = PI*angle_deg/180;
 	
-	const double x = axis._x; 
-	double z = r*sin(angle)+cos(angle) + axis._z; // Oui, x est échangé avec z
-	double y = r*cos(angle)-sin(angle) + axis._y;
+	Vec er(0, 1, 1);
 	
-	Vec nouv_ct = Vec(x, y, z); // x <--> z
+	Vec temp = er*r; // On crée un point situé à r de l'origine
+	
+	Vec nouv_ct = temp.rotate(angle, axis) + point; // On le fait ensuite tourner de "angle" atour de l'axe (sans oublier l'offset du point).
 	
 	sphere->ct = nouv_ct;
 }
@@ -77,7 +78,7 @@ void rotateSphere2Axis(Sphere* sphere, Vec point, double theta, double phi, doub
 	phi = PI*phi/180;
 	
 	
-	Vec er(cos(theta), sin(theta)*sin(phi), sin(theta)*cos(phi));
+	Vec er(cos(theta), sin(theta)*sin(phi), sin(theta)*cos(phi)); // Vecteur unitaire en coordonnées sphériques
 	
 	sphere->ct = er*r + point;
 }
@@ -130,24 +131,20 @@ void animate(Allegro* allegro, float FPS){
 	
 	/* Animation */
 	
-	/*if(sp1->ct._x > WIDTH-4*sp1->r && sens != -1)
-		sens = -1;
-	if(sp1->ct._x < sp1->r && sens != 1)
-		sens = 1;
-	sp1->ct._x += sens;*/
 	const int vRef = 2; // coefficient pour accelerer le mouvement des planetes
 	const int rRef = 83.23*world_ptr->light.r / 10; // on divise par 10 les rayons réels afin de pouvoir voir toutes les planètes
 	//const int rayon_mercure = 57909176; // juste pour info
+	Vec axeRotation = Vec(1, 0, 0);
 	
 	rotateSphere2Axis(mercure, world_ptr->light.ct, 90, 90-angleMercure, rRef); // Rotation sphérique :D
-	rotateSphere(venus, world_ptr->light.ct, angleVenus, rRef*1.868597301);
-	rotateSphere(terre, world_ptr->light.ct, angleTerre, rRef*2.583319214);
-	rotateSphere(lune, terre->ct, angleLune, rRef*0.552537013);
-	rotateSphere(mars, world_ptr->light.ct, angleMars, rRef*3.936105687);
-	rotateSphere(jupiter, world_ptr->light.ct, angleJupiter, rRef*pow(13.441946178, 0.8)); // Sinon elle est trop loin
-	rotateSphere(saturne, world_ptr->light.ct, angleSaturne, rRef*pow(24.54152986, 0.8));
-	rotateSphere(uranus, world_ptr->light.ct, angleUranus, rRef*pow(49.675703933, 0.8));
-	rotateSphere(neptune, world_ptr->light.ct, angleNeptune, rRef*pow(77.767358682, 0.8));
+	rotateSphere(venus, world_ptr->light.ct, axeRotation, angleVenus, rRef*1.868597301);
+	rotateSphere(terre, world_ptr->light.ct, axeRotation, angleTerre, rRef*2.583319214);
+	rotateSphere(lune, terre->ct, axeRotation, angleLune, rRef*0.552537013);
+	rotateSphere(mars, world_ptr->light.ct, axeRotation, angleMars, rRef*3.936105687);
+	rotateSphere(jupiter, world_ptr->light.ct, axeRotation, angleJupiter, rRef*pow(13.441946178, 0.8)); // Sinon elle est trop loin
+	rotateSphere(saturne, world_ptr->light.ct, axeRotation, angleSaturne, rRef*pow(24.54152986, 0.8));
+	rotateSphere(uranus, world_ptr->light.ct, axeRotation, angleUranus, rRef*pow(49.675703933, 0.8));
+	rotateSphere(neptune, world_ptr->light.ct, axeRotation, angleNeptune, rRef*pow(77.767358682, 0.8));
 	
 	//rotateSphere2Axis(test, world_ptr->light.ct, angleTest1, angleTest2, rRef*2);
 	
@@ -245,8 +242,8 @@ void redraw(Allegro* allegro, float FPS)
 	//cout << (string)Vec(0+world2.offset_x, 0+world2.offset_y+width_offset, 0+world2.offset_z) << endl;
 	//cout << fov << endl;
 	Color pixel;
-	//if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
-	//	high_fps_mode = true;
+	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0)/renderTimeAverage.size() > 100)
+		high_fps_mode = true;
 	//#pragma omp target teams distribute parallel for map(from:pixelgrid[0:100])
 	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
 		for(int y=0;y<allegro->getDisplayWidth();y++){
