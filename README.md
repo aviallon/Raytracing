@@ -10,5 +10,5 @@ Compile using :
 
 The last line is required to include the arial.ttf file _inside_ the executable, at link time. This avoids having to share your program and the font file as two separate files.
 
-The optimisation level `-O2` is highly recommended as it's 5 times as performant as lesser ones. Also `-O3` and higher causes weird shadows glitches I didn't identify yet.
+The optimisation level `-O3` is highly recommended as it's 5 times as performant as lesser ones. ~~Also `-O3` and higher causes weird shadows glitches I didn't identify yet.~~ Problem solved :D
 
