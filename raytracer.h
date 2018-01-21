@@ -389,24 +389,28 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 }
 
 bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
-	return false;
-	for(unsigned int obst=0;obst<world.size();obst++){
-		if (obst == (unsigned)i || world.getType(i)==Obj::PLAN){
+	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
+		if(obstacle == i){
 			continue;
 		}
-		Vec pObstacle = world.intersect(obst, pI, light.ct);
 		
-		const double acs = (pObstacle.normalize()).dot(pI.normalize());
-		const double devantL = ((pI-light.ct).normalize()).dot((pI-pObstacle));
+		Vec point_intersection_obstacle = world.intersect(obstacle, pI, light.ct);
 		
-		const bool noSelf = (pObstacle-pI).len() > 1e-5;
-		const bool devantLbis = (pI-light.ct).len() > (pObstacle-pI).len();
-
-		if (noSelf && devantLbis && devantL>0 && acs!=0){
-			return true;
+		if (point_intersection_obstacle.nonVec){
+			continue;
 		}
 		
+		double angle = (pI - light.ct).normalize().dot((point_intersection_obstacle - light.ct));
+		
+		if(angle < 0){
+			continue;
+		}
+		
+		if((pI - light.ct).len() > (point_intersection_obstacle - pI).len()){
+			return true;
+		}
 	}
+	
 	return false;
 }
 
