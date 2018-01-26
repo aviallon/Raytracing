@@ -84,6 +84,8 @@ void rotateSphere2Axis(Sphere* sphere, Vec point, double theta, double phi, doub
 void angleInc(double* angle, double i){
 	if((*angle)>=360){
 		*angle = 0;
+	} else if((*angle) < 0){
+		*angle = 360;
 	}
 	*angle += i;
 }
@@ -107,6 +109,8 @@ float jour = 0;
 
 const double fov = (WIDTH/2)/tan(15*PI/180);
 
+
+int reflectTest;
 //std::vector<std::vector<int>> theTest;
 //Sphere cameraSphere = Sphere(camera, 5, Color(0, 0, 0));
 
@@ -170,7 +174,7 @@ void animate(Allegro* allegro, float FPS){
 	
 	
 	double lacetRad = PI*world_ptr->lacet / 180 + PI/2;
-//	double roulisRad = PI*world_ptr->roulis / 180;
+	double roulisRad = PI*world_ptr->roulis / 180;
 	
 	double dist = 300;
 	Vec temp = Vec(0, 1, 1)*dist;
@@ -181,14 +185,17 @@ void animate(Allegro* allegro, float FPS){
 	
 	for (unsigned j = 0; j < 5; j++){
 		for(unsigned i = 0; i<5; i++){
-			Sphere* sp = ((Sphere*)world_ptr->getObject(9+j+i*5));
 			Vec pos = Vec(20*(j-2), 20*(i-2), 0);
+			Sphere* sp = ((Sphere*)world_ptr->getObject(9+j+i*5));
 			Vec new_ct = pos.rotate(lacetRad + PI/2, Vec(1, 0, 0))/*.rotate(roulisRad, Vec(0, 1, 0))*/ + rotation + world_ptr->light.ct;
 			//Vec new_ct = sp->ct.rotate(angleTest1, Vec(1, 0, 0)) + (Vec(1, 0, 0)-sp->ct);
-			sp->color = Color(255*sin(angleTest1), 255*cos(angleTest1), 128*cos(angleTest1)-127*sin(angleTest1));
+			sp->color = Color(127*sin(angleTest1 + 0) + 128, 127*sin(angleTest1 + 2*PI/3) + 128, 127*sin(angleTest1 + 4*PI/3) + 128);
 			sp->ct = new_ct;
 		}
 	}
+	
+	Sphere* refTest = ((Sphere*)world_ptr->getObject(reflectTest));
+	refTest->ct = Vec(world_ptr->roulis, world_ptr->lacet, world_ptr->light.ct._z);
 }
 
 Vec screenPixRotate(int x, int y, double angle, Vec axis, Vec camera, Allegro* allegro){
@@ -263,6 +270,10 @@ void redraw(Allegro* allegro, float FPS)
 	
 	allegro->draw_text(30, 30, jourstr.str(), allegro->rgb(255, 255, 255));
 	
+	stringstream corr;
+	corr << world_ptr->correction/PI << "*PI";
+	
+	allegro->draw_text(30, 50, corr.str(), allegro->rgb(255, 255, 255));
 	
 	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 }
@@ -330,6 +341,12 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 				break;
 			case ALLEGRO_KEY_PAD_MINUS:
 				vRef /= 2;
+				break;
+			case ALLEGRO_KEY_C:
+				world->correction += PI/12;
+				break;
+			case ALLEGRO_KEY_V:
+				world->correction -= PI/12;
 				break;
 				
 		}
@@ -415,11 +432,17 @@ int main(int argc, char **argv)
 		for (unsigned i = 0; i<5; i++){
 			Vec ct = Vec(20.0*j, 20.0*i + 30, -world.light.ct._z).rotate(180, Vec(1, 0, 0));
 			Sphere sp = Sphere(ct, 10, Color(0, 0, 0));
-			//sp.hidden = true;
-			//sp.reflectiveness = 5;
+			sp.hidden = true;
+			//sp.reflectiveness = 1;
 			world.addObject(sp);
 		}
 	}
+	
+	// Test reflexion
+	
+	Sphere sp = Sphere(world.light.ct + Vec(100, 0, 0), 20, Color(0, 0, 0));
+	sp.reflectiveness = 0.5;
+	reflectTest = world.addObject(sp);
 	
 	// Test overload
 	

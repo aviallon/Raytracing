@@ -272,7 +272,7 @@ public:
 			det = -1;
 		}
 		
-		if (det < 1e-8){
+		if (det < 1000000){
 			return Vec(true);
 		} else {
 			double sq_det = sqrt(det);
@@ -395,6 +395,8 @@ public:
 	int offset_y = 0;
 	int offset_z = 0;
 	
+	double correction = PI/2;
+	
 	int width_offset = 0;
 	
 	double tangage = 0;
@@ -500,20 +502,19 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 				shadow = shadowRay(pI, L, *world, light, i);
 			
 			Vec N = world->getNormale(i, pI);
+			dt = (L.normalize().dot(N));
 			
 			if(shadow){
 				dt = 0.01f;
-			} else {
-				dt = (L.normalize().dot(N));
 			}
 			
 			Color reflection(0, 0, 0);
 			
 			if(depth <= 3 && world->getReflectiveness(i) > 0){
-				Vec n_ray = ray.normalize().rotate(PI, N);
+				Vec n_ray = ray.normalize().rotate(world->correction+dt, N) * 50;
 				Vec reflect = n_ray + pI;
-				if(n_ray.dot(ray.normalize()) > 0){
-					reflection = raytrace(world, pI, reflect*10, depth+1)*0.1/*(n_ray.dot(ray.normalize()))*/;
+				if(n_ray.normalize().dot(ray.normalize()) > 0){
+					reflection = raytrace(world, pI, reflect*2, depth+1)/*(n_ray.normalize().dot(ray.normalize()))*/;
 				}
 			}
 			
