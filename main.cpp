@@ -416,6 +416,7 @@ int main(int argc, char **argv)
 			Vec ct = Vec(20.0*j, 20.0*i + 30, -world.light.ct._z).rotate(180, Vec(1, 0, 0));
 			Sphere sp = Sphere(ct, 10, Color(0, 0, 0));
 			//sp.hidden = true;
+			//sp.reflectiveness = 5;
 			world.addObject(sp);
 		}
 	}

@@ -82,6 +82,7 @@ public:
 		return sqrt(this->_x*this->_x+this->_y*this->_y+this->_z*this->_z);
 	}
 	
+	/* Angle is in radians */
 	Vec rotate(double angle, Vec axis){
 		Vec moi = *this;
 		
@@ -298,6 +299,7 @@ public:
 	
 	Vec ct;
 	double r, n;
+	double reflectiveness = 0;
 	Color color;
 	bool hidden = false;
 	bool textured = false;
@@ -372,6 +374,14 @@ public:
 	
 	const int getType(int i){
 		return indices[i].obj_type;
+	}
+	
+	const double getReflectiveness(int i){
+		if(indices[i].obj_type == Obj::SPHERE){
+			return spheres[indices[i].i].reflectiveness;
+		} else {
+			return 0;
+		}
 	}
 	
 	const unsigned int size(){
@@ -480,9 +490,9 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 		double dt = 0;
 		shadow = false;
 		ptemp = world->intersect(i, origine, direction);
-		Vec ray = (pI-origine);
+		Vec ray = (direction - origine);
 		
-		if((ptemp.nonVec != true && (ptemp-origine).len() < ray.len())){
+		if((ptemp.nonVec != true && (ptemp-origine).len() < (pI-origine).len())){
 			pI = ptemp;
 			Vec L = light.ct - pI;
 			
@@ -499,15 +509,15 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 			
 			Color reflection(0, 0, 0);
 			
-			if(depth <= 3){
-				Vec n_ray = ray.normalize().rotate(-PI, N);
+			if(depth <= 3 && world->getReflectiveness(i) > 0){
+				Vec n_ray = ray.normalize().rotate(PI, N);
 				Vec reflect = n_ray + pI;
-				//if(n_ray.dot(ray.normalize()) > 0){
-					reflection = raytrace(world, pI, reflect*2, depth+1)*(reflect.normalize().dot(N));
-				//}
+				if(n_ray.dot(ray.normalize()) > 0){
+					reflection = raytrace(world, pI, reflect*10, depth+1)*0.1/*(n_ray.dot(ray.normalize()))*/;
+				}
 			}
 			
-			pixel = world->getColor(i, pI).mix(light.color)*dt + reflection;
+			pixel = world->getColor(i, pI).mix(light.color)*dt + reflection*world->getReflectiveness(i);
 		}
 	}
 
