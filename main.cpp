@@ -19,6 +19,7 @@
 #include <thread>
 #include <mutex>
 #include <future>
+
 #define MAX(a, b) (((a > b))?(a):(b))
 #define MIN(a, b) (((a < b))?(a):(b))
 #define PI 3.14159265359
@@ -32,9 +33,8 @@ bool high_fps_mode = false;
 
 std::vector<int> renderTimeAverage = std::vector<int>(5);
 
-#include "allegro.h"
+#include "allegro/allegro.h"
 #include "raytracer.h"
-
 
 using namespace std;
 
@@ -191,8 +191,8 @@ void animate(Allegro* allegro, float FPS){
 		}
 	}
 	
-	Sphere* refTest = ((Sphere*)world_ptr->getObject(reflectTest));
-	refTest->ct = Vec(world_ptr->roulis, world_ptr->lacet, tTestProfondeur);
+//	Sphere* refTest = ((Sphere*)world_ptr->getObject(reflectTest));
+//	refTest->ct = Vec(world_ptr->roulis, world_ptr->lacet, tTestProfondeur);
 }
 
 Vec screenPixRotate(int x, int y, double angle, Vec axis, Vec camera, Allegro* allegro){
@@ -231,8 +231,10 @@ void redraw(Allegro* allegro, float FPS)
 	//Vec pix = screenPixRotate(x, y, world2.lacet, Vec(0, 1, 0), camera, allegro);
 	// Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis)
 	
-	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) / renderTimeAverage.size() > 100)
+	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) / renderTimeAverage.size() > 100){ // If FPS are under 1000/_100_ = 10
 		high_fps_mode = true;
+		allegro->getGUI()->displayMessage("High performance mode activated", 3000);
+	}
 	
 	
 	vector<vector<Color> > screen(allegro->getDisplayHeight(), vector<Color>(allegro->getDisplayWidth()));
@@ -267,15 +269,15 @@ void redraw(Allegro* allegro, float FPS)
 	
 	allegro->draw_text(30, 30, jourstr.str(), allegro->rgb(255, 255, 255));
 	
-	stringstream corr;
-	corr << round(world_ptr->correction/PI*100)/100 << "*PI";
-	
-	allegro->draw_text(30, 50, corr.str(), allegro->rgb(255, 255, 255));
+//	stringstream corr;
+//	corr << round(world_ptr->correction/PI*100)/100 << "*PI";
+//	
+//	allegro->draw_text(30, 50, corr.str(), allegro->rgb(255, 255, 255));
 	
 	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 }
 
-void mouseMove(Allegro* allegro, void* context, unsigned char event, int x, int y){
+void mouseMove(Allegro* allegro, void* context, uint16_t event, int x, int y){
 	World* world = (World*)context;
 	if(event == Allegro::MOUSE_WHEELED)
 		world->offset_x += 3*x;
@@ -286,24 +288,25 @@ void mouseMove(Allegro* allegro, void* context, unsigned char event, int x, int 
 	}
 }
 
-void mouseClick(Allegro* allegro, void* context, unsigned char event, int x, int y){
+void mouseClick(Allegro* allegro, void* context, uint16_t event, int x, int y){
 	if(event == Allegro::MOUSE_L_CLICKED){
 		allegro->setCursorVisibility(false);
 		allegro->setStickCursorToCenter(true);
 	}
 }
 
-void rotateTest(World* world){
-	Sphere* tTest = ((Sphere*)world->getObject(turnTest));
-	Sphere* refTest = ((Sphere*)world->getObject(reflectTest)); // Sphere autour de laquelle on tourne
-	//Vec rotate = refTest->getNormale(tTest->ct);
-	
-	
-	Vec new_ct = tTest->ct - refTest->ct;
-	tTest->ct = new_ct.rotate(PI, refTest->getNormale(tTest->ct) ^ Vec(1, 1, 1)) + refTest->ct;
+void rotateTest(World* world, Allegro* allegro){
+	allegro->getGUI()->displayMessage("Disabled", 4000);
+//	Sphere* tTest = ((Sphere*)world->getObject(turnTest));
+//	Sphere* refTest = ((Sphere*)world->getObject(reflectTest)); // Sphere autour de laquelle on tourne
+//	//Vec rotate = refTest->getNormale(tTest->ct);
+//	
+//	
+//	Vec new_ct = tTest->ct - refTest->ct;
+//	tTest->ct = new_ct.rotate(PI, refTest->getNormale(tTest->ct) ^ Vec(1, 1, 1)) + refTest->ct;
 }
 
-void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode){
+void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 	World* world = (World*)context;
 	if(event == Allegro::KEY_DOWN){
 		switch(keycode){
@@ -356,7 +359,7 @@ void move(Allegro* allegro, void* context, unsigned char event, uint8_t keycode)
 				world->correction -= PI/12;
 				break;
 			case ALLEGRO_KEY_T:
-				rotateTest(world);
+				rotateTest(world, allegro);
 				break;
 				
 		}
@@ -449,21 +452,21 @@ int main(int argc, char **argv)
 			Vec ct = Vec(20.0*j, 20.0*i + 30, -world.light.ct._z).rotate(180, Vec(1, 0, 0));
 			Sphere sp = Sphere(ct, 10, Color(0, 0, 0));
 			//sp.hidden = true;
-			sp.reflectiveness = 0.5;
+			sp.reflectiveness = 0.4;
 			world.addObject(sp);
 		}
 	}
 	
 	// Test reflexion
 	
-	Sphere sp = Sphere(world.light.ct + Vec(100, 0, 0), 20, Color(0, 0, 0));
-	sp.reflectiveness = 0.5;
-	sp.hidden = true; // Sphere masquée (et même désactivée)
-	reflectTest = world.addObject(sp);
-	
-	Sphere sp2 = Sphere(Vec(), 20, Color(255, 255, 255));
-	sp2.hidden = true; // Sphere masquée (et même désactivée)
-	turnTest = world.addObject(sp2);
+//	Sphere sp = Sphere(world.light.ct + Vec(100, 0, 0), 20, Color(0, 0, 0));
+//	sp.reflectiveness = 0.5;
+//	sp.hidden = true; // Sphere masquée (et même désactivée)
+//	reflectTest = world.addObject(sp);
+//	
+//	Sphere sp2 = Sphere(Vec(), 20, Color(255, 255, 255));
+//	sp2.hidden = true; // Sphere masquée (et même désactivée)
+//	turnTest = world.addObject(sp2);
 	
 	// Test overload
 	

@@ -498,7 +498,6 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 		double dt = 0;
 		shadow = false;
 		ptemp = world->intersect(i, origine, direction);
-		Vec ray = (direction - origine);
 		
 		if((ptemp.nonVec != true && (ptemp-origine).len() < (pI-origine).len())){
 			pI = ptemp;
@@ -535,5 +534,11 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 	return pixel;
 }
 
+
+//void displayTextMessage(Allegro* allegro, std::string message){
+//	std::cout << "[DISPLAYED] " << message << std::endl;
+//	
+//	allegro->getGUI()->displayMessage(message, 5000);
+//}
 
 #endif
