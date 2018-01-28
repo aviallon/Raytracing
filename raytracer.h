@@ -272,7 +272,7 @@ public:
 			det = -1;
 		}
 		
-		if (det < 1000000){
+		if (det < 1e-6){
 			return Vec(true);
 		} else {
 			double sq_det = sqrt(det);
@@ -476,11 +476,17 @@ bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
 }
 
 Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
-	const Color bg(100, 100, 100);
+	double nobgreflect = 1;
+	int max_depth = 3;
+	
+	if(depth > 0)
+		nobgreflect = 0;
+	
+	Color bg(50, 50, 50);
 	
 	Sphere light = world->light;
 	
-	Color pixel = bg;
+	Color pixel = bg*nobgreflect;
 	Vec pI(INFINITY, INFINITY, INFINITY);
 	Vec ptemp = light.intersect(origine, direction);
 	if(ptemp.nonVec != true){
@@ -498,8 +504,10 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 			pI = ptemp;
 			Vec L = light.ct - pI;
 			
-			if(!high_fps_mode)
+			if(!high_fps_mode){
 				shadow = shadowRay(pI, L, *world, light, i);
+				max_depth = 1;
+			}
 			
 			Vec N = world->getNormale(i, pI);
 			dt = (L.normalize().dot(N));
@@ -510,11 +518,13 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 			
 			Color reflection(0, 0, 0);
 			
-			if(depth <= 3 && world->getReflectiveness(i) > 0){
-				Vec n_ray = ray.normalize().rotate(world->correction+dt, N) * 50;
-				Vec reflect = n_ray + pI;
-				if(n_ray.normalize().dot(ray.normalize()) > 0){
-					reflection = raytrace(world, pI, reflect*2, depth+1)/*(n_ray.normalize().dot(ray.normalize()))*/;
+			if(depth < max_depth && world->getReflectiveness(i) > 0){
+				if((origine - pI).len() > 10){
+					Vec r = (origine - pI);
+					Vec B = N*r.dot(N);
+					Vec A = r - B;
+					Vec reflect = (r - A) *  50;
+					reflection = raytrace(world, pI, reflect, depth+1)*r.normalize().dot(N);
 				}
 			}
 			
