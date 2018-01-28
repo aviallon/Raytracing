@@ -1,6 +1,3 @@
-[submodule "AllegroWrapper"]
-	path = AllegroWrapper
-	url = https://github.com/aviallon/AllegroWrapper
 [submodule "allegro"]
 	path = allegro
 	url = https://github.com/aviallon/AllegroWrapper
