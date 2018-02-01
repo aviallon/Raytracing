@@ -1,6 +1,10 @@
 #ifndef RAYTRACER_H_
 #define RAYTRACER_H_
 
+#include <utility>
+
+using std::pair;
+
 template <typename T> int sgn(T val) {
     return (T(0) < val) - (val < T(0));
 }
@@ -137,42 +141,9 @@ double pow(const Vec& v, int i){
 	}
 }
 
-inline int between(double x, int min, int max){
-	return floor((x>max) ? max : ((x<min) ? min : x));
-}
-
-class Color {
-public:
-	Color(int r, int g, int b){
-		_r = between(r, 0, 255);
-		_g = between(g, 0, 255);
-		_b = between(b, 0, 255);
-	}
-	
-	Color(){
-		Color(0, 0, 0);
-	}
-	
-	Color(bool notColor){
-		Color(0, 0, 0);
-		this->notColor = notColor;
-	}
-	
-	Color operator*(double k){
-		return Color(between(this->_r*k, 0, 255), between(this->_g*k, 0, 255), between(this->_b*k, 0, 255));
-	}
-	
-	Color operator+(const Color& c){
-		return Color(between(this->_r+c._r, 0, 255), between(this->_g+c._g, 0, 255), between(this->_b+c._b, 0, 255));
-	}
-	
-	Color mix(const Color& c){
-		return Color(between(this->_r, 0, c._r), between(this->_g, 0, c._g), between(this->_b, 0, c._b));
-	}
-	
-	int _r, _g, _b;
-	bool notColor = false;
-};
+//inline int between(double x, int min, int max){
+//	return floor((x>max) ? max : ((x<min) ? min : x));
+//}
 
 class Plan{
 public:
@@ -188,7 +159,9 @@ public:
 		return n;
 	}
 	
-	Vec intersect(Vec o, Vec d){
+	pair<Vec, Vec> intersect(Vec o, Vec d){
+		pair<Vec, Vec> intersections(Vec(true), Vec(true));
+		
 		Vec d_o = d-o;
 		
 		/** A OBSERVER ET TRAVAILLER !!! */
@@ -202,11 +175,12 @@ public:
 		if (n.dot(d_o.normalize()) != 0){
 			float k = (n.dot(o)+_d)/(n.dot(d_o));;
 			if(k<0){ // WTF il se passe des trucs étranges ici
-				return Vec(true);
+				return intersections;
 			}
-			return d_o*k+o;
+			intersections.first = d_o*k+o;
+			return intersections;
 		}
-		return Vec(true);
+		return intersections;
 	}
 	
 	Color getColor(Vec p){
@@ -250,9 +224,10 @@ public:
 		return (pI - ct)/r;
 	}
 	
-	Vec intersect(Vec o, Vec d){
+	pair<Vec, Vec> intersect(Vec o, Vec d, bool getAll = false){
+		pair<Vec, Vec> intersections(Vec(true), Vec(true));
 		if(hidden){
-			return Vec(true);
+			return intersections;
 		}
 		Vec d_o = d-o;
 		Vec o_ct = o-ct;
@@ -273,17 +248,22 @@ public:
 		}
 		
 		if (det < 1e-6){
-			return Vec(true);
+			return intersections;
 		} else {
 			double sq_det = sqrt(det);
-			double k = MIN((-b - sq_det)/(2*a), (-b + sq_det)/(2*a));
-			if(k<0){
-				return Vec(true);
+			double k1 = MIN((-b - sq_det)/(2*a), (-b + sq_det)/(2*a));
+			if(k1>=0){
+				intersections.first=d_o*k1+o;
 			}
-			return d_o*k+o;
+			if(getAll == false)
+				return intersections;
+			double k2 = MAX((-b - sq_det)/(2*a), (-b + sq_det)/(2*a));
+			if(k2>=0){
+				intersections.second=d_o*k2+o;
+			}
 		}
 		
-		return Vec(true);
+		return intersections;
 	}
 	
 	Color getColor(Vec pI){
@@ -300,6 +280,7 @@ public:
 	Vec ct;
 	double r, n;
 	double reflectiveness = 0;
+	double opacity = 1;
 	Color color;
 	bool hidden = false;
 	bool textured = false;
@@ -308,7 +289,8 @@ public:
 
 enum Obj{
 		SPHERE	= (1<<0),
-		PLAN	= (1<<1)
+		PLAN	= (1<<1),
+		LIGHT	= (1<<2)
 };
 
 struct Indices{
@@ -340,68 +322,119 @@ public:
 		return indices.size()-1;
 	}
 	
+	int addLight(Sphere light){
+		lights.push_back(light);
+		//indices.push_back(Indices(lights.size()-1, Obj::LIGHT | Obj::SPHERE));
+	}
+	
 	void* getObject(int i){
-		if(indices[i].obj_type == Obj::SPHERE){
-			return &(spheres[indices[i].i]);
+		if(i < indices.size()){
+			if(indices[i].obj_type == Obj::SPHERE){
+				return &(spheres[indices[i].i]);
+			} else {
+				return &(plans[indices[i].i]);
+			}
 		} else {
-			return &(plans[indices[i].i]);
+			return &(lights[i - indices.size()]);
 		}
 	}
 	
 	Vec getNormale(int i, Vec pI){
-		if(indices[i].obj_type == Obj::SPHERE){
-			return spheres[indices[i].i].getNormale(pI);
+		if(i < indices.size()){
+			if(indices[i].obj_type == Obj::SPHERE){
+				return spheres[indices[i].i].getNormale(pI);
+			} else {
+				return plans[indices[i].i].getNormale(pI);
+			}
 		} else {
-			return plans[indices[i].i].getNormale(pI);
+			return lights[i - indices.size()].getNormale(pI);
 		}
 	}
 	
-	Vec intersect(int i, Vec o, Vec d){
-		if(indices[i].obj_type == Obj::SPHERE){
-			return spheres[indices[i].i].intersect(o, d);
-		} else {
-			return plans[indices[i].i].intersect(o, d);
+	pair<Vec, Vec> intersect(int i, Vec o, Vec d, bool getAll = false, bool nolight = false){
+		if(i < indices.size()){
+			if(indices[i].obj_type == Obj::SPHERE){
+				return spheres[indices[i].i].intersect(o, d, getAll);
+			} else {
+				return plans[indices[i].i].intersect(o, d);
+			}
+		} else if(!nolight){
+			return lights[i-indices.size()].intersect(o, d, false);
 		}
 	}
 	
 	Color getColor(int i, Vec p){
-		if(indices[i].obj_type == Obj::SPHERE){
-			return spheres[indices[i].i].getColor(p);
+		if(i < indices.size()){
+			if(indices[i].obj_type & Obj::SPHERE){
+				return spheres[indices[i].i].getColor(p);
+			} else {
+				return plans[indices[i].i].getColor(p);
+			}
 		} else {
-			return plans[indices[i].i].getColor(p);
+			return lights[i - indices.size()].getColor(p);
 		}
 	}
 	
 	const int getType(int i){
-		return indices[i].obj_type;
+		if(i < indices.size()){
+			return indices[i].obj_type;
+		} else {
+			return Obj::LIGHT;
+		}
 	}
 	
 	const double getReflectiveness(int i){
-		if(indices[i].obj_type == Obj::SPHERE){
+		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
 			return spheres[indices[i].i].reflectiveness;
 		} else {
 			return 0;
 		}
 	}
 	
-	const unsigned int size(){
-		return indices.size();
+	const double getOpacity(int i){
+		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
+			return spheres[indices[i].i].opacity;
+		} else {
+			return 1;
+		}
 	}
 	
-	Sphere light = Sphere(Vec(0, 0, 0), 5, Color(255, 255, 255));
+	const float getRefractionIndice(int i){
+		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
+			return spheres[indices[i].i].n;
+		} else {
+			return 1;
+		}
+	}
+	
+	const unsigned int size(bool withLights = true){
+		if(withLights)
+			return indices.size() + lights.size();
+		else
+			return indices.size();
+	}
+	
+	Vec getLightCt(int i){
+		return lights[i].ct;
+	}
+	
+	std::vector<Sphere> lights;
+	//Sphere light = Sphere(Vec(0, 0, 0), 5, Color(255, 255, 255));
 	Vec camera;
 	
 	int offset_x = 0;
 	int offset_y = 0;
 	int offset_z = 0;
 	
-	double correction = PI/2;
+	double correction = 1.5;
 	
 	int width_offset = 0;
 	
 	double tangage = 0;
 	double lacet = 0;
 	double roulis = 0;
+	
+	Allegro* allegro;
 	
 private:
 
@@ -431,7 +464,7 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 	int objId = -1;
 	#pragma omp parallel for
 	for(uint j=0;j<world.size();j++){
-		Vec impact = world.intersect(j, o, d);
+		Vec impact = world.intersect(j, o, d).first;
 		Vec d_o = d - o;
 		if(impact.nonVec || (impact-o).len() > d_o.len())
 			continue;
@@ -449,13 +482,14 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 	
 }
 
-bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
+bool shadowRay(Vec pI, Vec L, World& world, int lampe, int i){
+	Sphere light = world.lights[lampe];
 	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
-		if((int)obstacle == i){
+		if((int)obstacle == i || (int)obstacle == lampe + world.size(false)){
 			continue;
 		}
 		
-		Vec point_intersection_obstacle = world.intersect(obstacle, pI, light.ct);
+		Vec point_intersection_obstacle = world.intersect(obstacle, pI, light.ct).first;
 		
 		if (point_intersection_obstacle.nonVec){
 			continue;
@@ -475,70 +509,152 @@ bool shadowRay(Vec pI, Vec L, World& world, Sphere& light, int i){
 	return false;
 }
 
+// Renvoie Rtm puis Ttm
+std::pair<double, double> fresnelCoefficient(double i, double r, float n1, float n2){
+	const double n1cosi = n1*cos(i); // Permet d'éviter de recalculer plusieurs fois les mêmes cos, les calculs trigonométriques étant très couteux à l'ordinateur
+	const double n2cosr = n2*cos(r);
+	
+	const double reflect = (n1cosi - n2cosr)/(n1cosi + n2cosr);
+	
+	const double transmission = 2*n1cosi/(n1cosi + n2cosr);
+	
+	return std::pair<double, double>(reflect, transmission);
+}
+
 Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 	double nobgreflect = 1;
-	int max_depth = 3;
+	int max_depth = 4;
 	
 	if(depth > 0)
-		nobgreflect = 0;
+		nobgreflect = 1;
 	
 	Color bg(50, 50, 50);
+	//Color pixel(0, 0, 0);
+	Color pixel = bg*nobgreflect;// =  bg*nobgreflect;
+	bool light_here = false;
 	
-	Sphere light = world->light;
+	for(unsigned lampe = 0; lampe < world->lights.size(); lampe++){
 	
-	Color pixel = bg*nobgreflect;
-	Vec pI(INFINITY, INFINITY, INFINITY);
-	Vec ptemp = light.intersect(origine, direction);
-	if(ptemp.nonVec != true){
-		pI = ptemp;
-		pixel = light.color;
-	}
-	bool shadow = false;
-	for(unsigned int i=0;i<world->size();i++){
-		double dt = 0;
-		shadow = false;
-		ptemp = world->intersect(i, origine, direction);
+		Sphere light = world->lights[lampe];
 		
-		if((ptemp.nonVec != true && (ptemp-origine).len() < (pI-origine).len())){
+//		if(lampe == 0)
+//			pixel = bg*nobgreflect;
+		Color temp_pixel;
+		bool ok = false;
+			
+		Vec pI(INFINITY, INFINITY, INFINITY);
+		Vec ptemp = light.intersect(origine, direction).first;
+		if(ptemp.nonVec != true){
 			pI = ptemp;
-			Vec L = light.ct - pI;
+			light_here = true;
+		}
+		bool shadow = false;
+		for(unsigned int i=0;i<world->size();i++){
+			double dt = 0;
+			shadow = false;
+			ptemp = world->intersect(i, origine, direction).first;
 			
-			if(!high_fps_mode){
-				shadow = shadowRay(pI, L, *world, light, i);
-				max_depth = 1;
-			}
-			
-			Vec N = world->getNormale(i, pI);
-			dt = (L.normalize().dot(N));
-			
-			if(shadow){
-				dt = 0.01f;
-			}
-			
-			Color reflection(0, 0, 0);
-			
-			if(depth < max_depth && world->getReflectiveness(i) > 0){
-				if((origine - pI).len() > 10){
+			if((ptemp.nonVec != true && (ptemp-origine).len() < (pI-origine).len())){
+				ok = true;
+				light_here = false;
+				pI = ptemp;
+				Vec L = light.ct - pI;
+				
+				if(!high_fps_mode){
+					shadow = shadowRay(pI, L, *world, lampe, i);
+				} else {
+					max_depth = 1;
+				}
+				
+				Vec N = world->getNormale(i, pI);
+				dt = (L.normalize().dot(N));
+				
+				if(shadow){
+					dt = 0.01f;
+				}
+				
+				Color reflection(0, 0, 0);
+				Color transmission(0, 0, 0);
+				std::pair<double, double> coeffs;
+				
+				if(depth < max_depth){
+				
 					Vec r = (origine - pI);
 					Vec B = N*r.dot(N);
 					Vec A = r - B;
-					Vec reflect = (r - A) *  50;
-					reflection = raytrace(world, pI, reflect, depth+1)*r.normalize().dot(N);
+					
+					if(world->getReflectiveness(i) > 0){
+						if((origine - pI).len() > 10){
+							Vec reflect = (r - A);
+							
+							reflection = raytrace(world, pI, reflect*1000, depth+1)*r.normalize().dot(N);
+						}
+					}
+					
+					
+					if(world->getOpacity(i) < 1){
+						
+						const float n = world->getRefractionIndice(i);
+						
+						const double angle_incidence1 = acos(r.normalize().dot(N));
+						
+						const double r_angle = asin((1/n) * sin(  angle_incidence1  ) );
+						
+						
+						coeffs = fresnelCoefficient(angle_incidence1, r_angle, 1, n);
+						
+						Vec Aprime = A.normalize()*tan(r_angle)*B.len();
+
+						Vec refract1 = (Aprime+B)*-1;
+						
+						const Vec pI2 = world->intersect(i, pI, refract1*1000, true).second;
+						
+						Vec N2 = world->getNormale(i, pI2)*-1;
+						
+						Vec r2 = (pI - pI2);
+						Vec B_2 = N2*r2.dot(N2);
+						Vec A2 = r2 - B_2;
+						
+						const double angle_incidence2 = acos(r2.normalize().dot(N2));
+						
+						const double r_angle2 = asin((n) * sin(  angle_incidence2  ) );
+						
+						const std::pair<double, double> coeffs2 = fresnelCoefficient(angle_incidence2, r_angle2, n, 1);
+						const double transmis2 = MAX(MIN(coeffs.second * coeffs2.second, 1), 0);
+
+						
+						Vec Aprime2 = A2.normalize()*tan(r_angle2)*B_2.len();
+						Vec refract2 = (Aprime2+B_2)*-1;
+						
+						transmission = raytrace(world, pI2, refract2*1000, depth+1)*transmis2;
+					}
+					
+				}
+				
+				if(world->getType(i) == Obj::LIGHT){
+					temp_pixel = world->getColor(i, pI);
+				} else {
+					temp_pixel = (world->getColor(i, pI)*world->getOpacity(i)).mix(light.color)*dt + reflection*coeffs.first/*world->getReflectiveness(i)*/ + transmission*(1-world->getOpacity(i));
 				}
 			}
-			
-			pixel = world->getColor(i, pI).mix(light.color)*dt + reflection*world->getReflectiveness(i);
 		}
+		
+		if(light_here){
+			pixel = light.color;
+		}
+		
+		if(ok){
+			if(lampe == 0 || light_here){
+				pixel = temp_pixel;
+			} else {
+				pixel = pixel.blend(temp_pixel);
+			}
+		}
+		
+		// Fin boucle des lampes
 	}
 
 	return pixel;
 }
-
-
-//void displayTextMessage(Allegro* allegro, std::string message){
-//	std::cout << "[DISPLAYED] " << message << std::endl;
-//	
-//	allegro->getGUI()->displayMessage(message, 5000);
-//}
 
 #endif
