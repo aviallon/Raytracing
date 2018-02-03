@@ -19,6 +19,7 @@
 #include <thread>
 #include <mutex>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
+//#include <boost/date_time/posix_time/posix_time.hpp>
 //#include <date_time/gregorian/gregorian_types.hpp>
 #include <future>
 
@@ -35,6 +36,8 @@ const signed int HEIGHT = 500;
  */
 
 double vRef = 2; // coefficient pour accelerer le mouvement des planetes
+
+short selector = -1;
 
 bool high_fps_mode = false;
 
@@ -257,6 +260,21 @@ string getDate(double temps){
 	return dtstream.str();
 }
 
+string getDuration(double duration){
+	stringstream dtstream;
+	if(abs(duration) < 1.0){
+		double hours = (24*duration);
+		double minutes = abs(hours - (int)hours)*60;
+		int seconds = (minutes - (int)minutes)*60;
+		dtstream << (int)hours << ":" << (int)minutes << ":" << seconds;
+	} else {
+		int days = (int)duration;
+		int hours = abs(duration - (int)duration)*24;
+		dtstream << days << "j " << hours << "h";
+	}
+	return dtstream.str();
+}
+
 void redraw(Allegro* allegro, float FPS)
 {
 	const int t = getms();
@@ -309,16 +327,25 @@ void redraw(Allegro* allegro, float FPS)
 	
 	fps_disp << fps(renderTimeAverage) << " FPS\0";
 	
-	allegro->draw_text(30, 10, fps_disp.str(), allegro->rgb(255, 255, 255));
+	allegro->draw_text(5, 10, fps_disp.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
-	allegro->draw_text(30, 30, getDate(temps), allegro->rgb(255, 255, 255));
+	allegro->draw_text(5, 30, getDate(temps), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
+	
+	stringstream vitesse;
+	vitesse << getDuration(vRef) << " / secondes";
+	
+	Color vitesse_color(255, 255, 255);
+	if(selector == 0){
+		vitesse_color = Color(255, 0, 0);
+	}
+	allegro->draw_text(5, 50, vitesse.str(), vitesse_color.toAllegro(), ALLEGRO_ALIGN_LEFT);
 	
 	stringstream corr;
 	corr << "N : " << round(world_ptr->correction*100)/100;
 	
-	allegro->draw_text(30, 50, corr.str(), allegro->rgb(255, 255, 255));
+	allegro->draw_text(5, 70, corr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
-	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2;
+	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2; // Required when resizing the display in order to move the camera accordingly
 }
 
 void mouseMove(Allegro* allegro, void* context, uint16_t event, int x, int y){
@@ -366,18 +393,33 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 					allegro->toggleFullscreen(true);
 				}
 				break;
-			case ALLEGRO_KEY_UP:
-				world->offset_z += 5;
-				break;
-			case ALLEGRO_KEY_DOWN:
-				world->offset_z -= 5;
-				break;
-			case ALLEGRO_KEY_RIGHT:
-				world->offset_y += 5;
-				break;
-			case ALLEGRO_KEY_LEFT:
-				world->offset_y -= 5;
-				break;
+//			case ALLEGRO_KEY_UP:
+//				world->offset_z += 5;
+//				break;
+//			case ALLEGRO_KEY_DOWN:
+//				world->offset_z -= 5;
+//				break;
+			if(allegro->isKeyDown(ALLEGRO_KEY_LSHIFT)){
+				case ALLEGRO_KEY_RIGHT:
+				{
+					if(selector <= 2){
+						selector += 1;
+					} else {
+						selector = 0;
+					}
+				}
+				
+				case ALLEGRO_KEY_LEFT:
+				{
+					if(selector > 0){
+						selector -= 1;
+					} else {
+						selector = 2;
+					}
+				}
+			} else {
+				selector = -1;
+			}
 			case ALLEGRO_KEY_D:
 				angleInc(&(world->lacet), 1);
 				break;
@@ -390,12 +432,30 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			case ALLEGRO_KEY_Z:
 				angleInc(&(world->roulis), -1);
 				break;
-			case ALLEGRO_KEY_PAD_PLUS:
+			case ALLEGRO_KEY_PAD_ASTERISK:
 				vRef *= 2;
 				break;
-			case ALLEGRO_KEY_PAD_MINUS:
+			case ALLEGRO_KEY_PAD_SLASH:
 				vRef /= 2;
 				break;
+			case ALLEGRO_KEY_PAD_PLUS:
+			{
+				if(abs(vRef) > 1){
+					vRef += 1;
+				} else {
+					vRef += 1.0/24;
+				}
+				break;
+			}
+			case ALLEGRO_KEY_PAD_MINUS:
+			{
+				if(abs(vRef) > 1){
+					vRef -= 1;
+				} else {
+					vRef -= 1.0/24;
+				}
+				break;
+			}
 			case ALLEGRO_KEY_C:
 			{
 				for(unsigned i = 0; i<theTest.size(); i++){
@@ -437,17 +497,19 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 				
 		}
 	} else {
+		//if(selector == -1){
+			if(allegro->isKeyDown(ALLEGRO_KEY_RIGHT))
+				world->offset_y += 5;
+			
+			if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
+				world->offset_y -= 5;
+		//}
+		
 		if(allegro->isKeyDown(ALLEGRO_KEY_UP))
 			world->offset_z += 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_DOWN))
 			world->offset_z -= 5;
-			
-		if(allegro->isKeyDown(ALLEGRO_KEY_RIGHT))
-			world->offset_y += 5;
-			
-		if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
-			world->offset_y -= 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_D))
 			angleInc(&(world->lacet), 1);
@@ -540,7 +602,7 @@ int main(int argc, char **argv)
 	
 	for (unsigned j = 0; j < 5; j++){
 		for (unsigned i = 0; i<5; i++){
-			Vec ct;
+			Vec ct = Vec(0, 0, 0);
 			//Vec ct = Vec(20.0*j, 20.0*i + 30, -world.lights[0].ct._z).rotate(180, Vec(1, 0, 0));
 			Sphere sp = Sphere(ct, 10, Color(255, 255, 255));
 			sp.hidden = true;

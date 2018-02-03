@@ -34,7 +34,9 @@ public:
 		_z = double(z);
 	}
 	Vec(){
-		Vec(0,0,0);
+		_x = 0;
+		_y = 0;
+		_z = 0;
 	}
 	
 	Vec(bool pasVec){
@@ -123,7 +125,7 @@ public:
 		return repr;
 	}
 	
-	double _x, _y, _z;
+	double _x=0, _y=0, _z=0;
 	bool nonVec = false;
 	
 };
@@ -324,11 +326,12 @@ public:
 	
 	int addLight(Sphere light){
 		lights.push_back(light);
+		return lights.size()-1;
 		//indices.push_back(Indices(lights.size()-1, Obj::LIGHT | Obj::SPHERE));
 	}
 	
 	void* getObject(int i){
-		if(i < indices.size()){
+		if((unsigned)i < indices.size()){
 			if(indices[i].obj_type == Obj::SPHERE){
 				return &(spheres[indices[i].i]);
 			} else {
@@ -340,7 +343,7 @@ public:
 	}
 	
 	Vec getNormale(int i, Vec pI){
-		if(i < indices.size()){
+		if((unsigned)i < indices.size()){
 			if(indices[i].obj_type == Obj::SPHERE){
 				return spheres[indices[i].i].getNormale(pI);
 			} else {
@@ -352,7 +355,7 @@ public:
 	}
 	
 	pair<Vec, Vec> intersect(int i, Vec o, Vec d, bool getAll = false, bool nolight = false){
-		if(i < indices.size()){
+		if((unsigned)i < indices.size()){
 			if(indices[i].obj_type == Obj::SPHERE){
 				return spheres[indices[i].i].intersect(o, d, getAll);
 			} else {
@@ -361,10 +364,12 @@ public:
 		} else if(!nolight){
 			return lights[i-indices.size()].intersect(o, d, false);
 		}
+		
+		return pair<Vec, Vec>(Vec(true), Vec(true));
 	}
 	
 	Color getColor(int i, Vec p){
-		if(i < indices.size()){
+		if((unsigned)i < indices.size()){
 			if(indices[i].obj_type & Obj::SPHERE){
 				return spheres[indices[i].i].getColor(p);
 			} else {
@@ -376,7 +381,7 @@ public:
 	}
 	
 	const int getType(int i){
-		if(i < indices.size()){
+		if((unsigned)i < indices.size()){
 			return indices[i].obj_type;
 		} else {
 			return Obj::LIGHT;
@@ -384,7 +389,7 @@ public:
 	}
 	
 	const double getReflectiveness(int i){
-		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
+		if(indices[i].obj_type == Obj::SPHERE && (unsigned)i < indices.size()){
 			return spheres[indices[i].i].reflectiveness;
 		} else {
 			return 0;
@@ -392,7 +397,7 @@ public:
 	}
 	
 	const double getOpacity(int i){
-		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
+		if(indices[i].obj_type == Obj::SPHERE && (unsigned)i < indices.size()){
 			return spheres[indices[i].i].opacity;
 		} else {
 			return 1;
@@ -400,7 +405,7 @@ public:
 	}
 	
 	const float getRefractionIndice(int i){
-		if(indices[i].obj_type == Obj::SPHERE && i < indices.size()){
+		if(indices[i].obj_type == Obj::SPHERE && (unsigned)i < indices.size()){
 			return spheres[indices[i].i].n;
 		} else {
 			return 1;
@@ -482,10 +487,10 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 	
 }
 
-bool shadowRay(Vec pI, Vec L, World& world, int lampe, int i){
+bool shadowRay(Vec pI, Vec L, World& world, unsigned lampe, int i){
 	Sphere light = world.lights[lampe];
 	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
-		if((int)obstacle == i || (int)obstacle == lampe + world.size(false)){
+		if((int)obstacle == i || obstacle == lampe + world.size(false)){
 			continue;
 		}
 		
@@ -609,24 +614,27 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 						
 						const Vec pI2 = world->intersect(i, pI, refract1*1000, true).second;
 						
-						Vec N2 = world->getNormale(i, pI2)*-1;
+						if(true || !pI2.nonVec){
 						
-						Vec r2 = (pI - pI2);
-						Vec B_2 = N2*r2.dot(N2);
-						Vec A2 = r2 - B_2;
-						
-						const double angle_incidence2 = acos(r2.normalize().dot(N2));
-						
-						const double r_angle2 = asin((n) * sin(  angle_incidence2  ) );
-						
-						const std::pair<double, double> coeffs2 = fresnelCoefficient(angle_incidence2, r_angle2, n, 1);
-						const double transmis2 = MAX(MIN(coeffs.second * coeffs2.second, 1), 0);
+							Vec N2 = world->getNormale(i, pI2)*-1;
+							
+							Vec r2 = (pI - pI2);
+							Vec B_2 = N2*r2.dot(N2);
+							Vec A2 = r2 - B_2;
+							
+							const double angle_incidence2 = acos(r2.normalize().dot(N2));
+							
+							const double r_angle2 = asin((n) * sin(  angle_incidence2  ) );
+							
+							const std::pair<double, double> coeffs2 = fresnelCoefficient(angle_incidence2, r_angle2, n, 1);
+							const double transmis2 = MAX(MIN(coeffs.second * coeffs2.second, 1), 0);
 
-						
-						Vec Aprime2 = A2.normalize()*tan(r_angle2)*B_2.len();
-						Vec refract2 = (Aprime2+B_2)*-1;
-						
-						transmission = raytrace(world, pI2, refract2*1000, depth+1)*transmis2;
+							
+							Vec Aprime2 = A2.normalize()*tan(r_angle2)*B_2.len();
+							Vec refract2 = (Aprime2+B_2)*-1;
+							
+							transmission = raytrace(world, pI2, refract2*1000, depth+1)*transmis2;
+						}
 					}
 					
 				}
