@@ -2,6 +2,8 @@
 #define RAYTRACER_H_
 
 #include <utility>
+#include "phys.hpp"
+#include "math.hpp"
 
 using std::pair;
 
@@ -21,137 +23,14 @@ const float fps(std::vector<int> renderTimeAverage){
 	return floor(10000/average)/10;
 }
 
-class Vec {
-public:
-	Vec(double x, double y, double z){
-		_x = x;
-		_y = y;
-		_z = z;
-	}
-	Vec(int x, int y, int z){
-		_x = double(x);
-		_y = double(y);
-		_z = double(z);
-	}
-	Vec(){
-		_x = 0;
-		_y = 0;
-		_z = 0;
-	}
-	
-	Vec(bool pasVec){
-		Vec(0,0,0);
-		nonVec = pasVec;
-	}
-	
-	Vec operator+(const Vec& v2){
-		return Vec(this->_x+v2._x, this->_y+v2._y, this->_z+v2._z);
-	}
-	Vec operator-(const Vec& v2){
-		return Vec(this->_x-v2._x, this->_y-v2._y, this->_z-v2._z);
-	}
-	
-	Vec operator*(const float k){
-		return Vec(this->_x*k, this->_y*k, this->_z*k);
-	}
-	
-	Vec operator/(const float k){
-		return Vec(this->_x/k, this->_y/k, this->_z/k);
-	}
-	
-	Vec operator%(const int k){
-		return Vec((int)(this->_x)%k, (int)(this->_y)%k, (int)(this->_z)%k);
-	}
-	
-	Vec operator^(const Vec& v2){
-		return Vec(this->_y*v2._z - this->_z*v2._y, this->_z*v2._x - this->_z*v2._z, this->_x*v2._y - this->_y*v2._z);
-	}
-	
-	bool operator==(const Vec& v2){
-		if(this->_x==v2._x && this->_y==v2._y && this->_z==v2._z){
-			return true;
-		} else{
-			return false;
-		}
-	}
-	
-	bool operator!=(const Vec& v2){
-		return not((*this)==v2);
-	}
-	
-	
-	double dot(const Vec& v2){
-		return (this->_x*v2._x + this->_y*v2._y + this->_z*v2._z);
-	}
-	
-	double len(){
-		return sqrt(this->_x*this->_x+this->_y*this->_y+this->_z*this->_z);
-	}
-	
-	/* Angle is in radians */
-	Vec rotate(double angle, Vec axis){
-		Vec moi = *this;
-		
-		axis = axis.normalize();
-		
-		Vec v = moi*cos(angle) + (axis ^ moi)*sin(angle) + axis * (1 - cos(angle))*(moi.dot(axis));
-		
-		return v;
-	}
-	
-	Vec rotate2(double theta, double phi, Vec axis){
-		Vec moi = *this;
-		
-		axis = axis.normalize();
-		
-		Vec axis2 = axis ^ Vec(1, 1, 1);
-		
-		Vec v1 = moi*cos(theta) + (axis ^ moi)*sin(theta) + axis * (1 - cos(theta))*(moi.dot(axis));
-		
-		Vec v2 = v1*cos(phi) + (axis2 ^ v1)*sin(phi) + axis2 * (1 - cos(phi))*(v1.dot(axis2));
-		
-		return v2;
-	}
-	
-	Vec normalize(){
-		double l = (this->len());
-		//float l = sqrt((*this).dot(*this));
-		return Vec(this->_x/l, this->_y/l, this->_z/l);
-	}
-	
-	operator std::string() {
-		std::string repr;
-		repr = repr + typeid(this).name() + "(" + std::to_string(_x) + "," + std::to_string(_y) + "," + std::to_string(_z) + ")";
-		return repr;
-	}
-	
-	double _x=0, _y=0, _z=0;
-	bool nonVec = false;
-	
-};
-
-void pVec(Vec v){
-	std::cout << (std::string)v << std::endl;
-}
-
-double pow(const Vec& v, int i){
-	Vec v2 = v;
-	if(i==2){
-		return v2.dot(v2);
-	} else {
-		return 0;
-	}
-}
-
-//inline int between(double x, int min, int max){
-//	return floor((x>max) ? max : ((x<min) ? min : x));
-//}
-
 class Plan{
 public:
-	Plan(Vec a, Vec n, Color color, bool damier = false){
+	Plan(Vec a, Vec b, Vec c, Color color, bool damier = false){
 		this->a = a;
-		this->n = n.normalize();
+		this->b = b;
+		this->c = c;
+		
+		this->n = ((b-a)^(c-a)).normalize();
 		this->damier = damier;
 		//std::cout << n.len() << ", " << this->n.len() << std::endl;
 		this->color = color;
@@ -161,51 +40,56 @@ public:
 		return n;
 	}
 	
-	pair<Vec, Vec> intersect(Vec o, Vec d){
+	pair<Vec, Vec> intersect(Vec o, Vec d, Vec camera){
 		pair<Vec, Vec> intersections(Vec(true), Vec(true));
 		
-		Vec d_o = d-o;
+		Vec d_o = o-d;
 		
-		/** A OBSERVER ET TRAVAILLER !!! */
-		d_o = Vec(-d_o._x, d_o._y, d_o._z-WIDTH/2);
-		// --> Généralisation non triviale...
-		// Voir sur internet Changement de base 3d -> PDF d'une université informatique intéressant.
+		return intersections;
 		
-		
-		//std::cout << (o-a).len() << std::endl;
-		double _d = -(n.dot(a));
-		if (n.dot(d_o.normalize()) != 0){
-			float k = (n.dot(o)+_d)/(n.dot(d_o));;
-			if(k<0){ // WTF il se passe des trucs étranges ici
-				return intersections;
-			}
-			intersections.first = d_o*k+o;
+		if((d_o|n) < 0)
 			return intersections;
-		}
+		
+		Vec b_a = (a-b);
+		Vec c_a = (a-c);
+		
+		Vec h = a + b_a*(d_o|b_a) + c_a*(d_o|c_a);
+		
+//		Vec a_h = (a-h).normalize();
+//		Vec b_h = (b-h).normalize();
+//		Vec c_h = (c-h).normalize();
+		
+		//float angle = acos(a_h|c_h) + acos(b_h|c_h) + acos(c_h|a_h);
+		
+		intersections.first = h*-1;
+		
 		return intersections;
 	}
 	
 	Color getColor(Vec p){
 
-		if(!damier)
-			return color;
+//		if(!damier)
+//			return color;
+//		
+//		const int motifSize = 100;
+//		Vec p_inMotif = p%motifSize;
+//		
+//		const double sgn_y = (p_inMotif._y < 0)?-1:1;
+//		const double sgn_z = (p_inMotif._z < 0)?-1:1;
+//			
+//		if((p_inMotif._y) <= sgn_y*motifSize/2 && (p_inMotif._z) <= sgn_z*motifSize/2) {
+//			return Color(50, 50, 50);
+//		} else if((p_inMotif._y) > sgn_y*motifSize/2 && (p_inMotif._z) > sgn_z*motifSize/2){
+//			return Color(50, 50, 50);
+//		}
 		
-		const int motifSize = 100;
-		Vec p_inMotif = p%motifSize;
-		
-		const double sgn_y = (p_inMotif._y < 0)?-1:1;
-		const double sgn_z = (p_inMotif._z < 0)?-1:1;
-			
-		if((p_inMotif._y) <= sgn_y*motifSize/2 && (p_inMotif._z) <= sgn_z*motifSize/2) {
-			return Color(50, 50, 50);
-		} else if((p_inMotif._y) > sgn_y*motifSize/2 && (p_inMotif._z) > sgn_z*motifSize/2){
-			return Color(50, 50, 50);
-		}
-		
-		return color;
+		return Color(255, 255, 255);
+		//return color;
 	}
 	
 	Vec a;
+	Vec b;
+	Vec c;
 	Vec n;
 	Color color;
 	bool damier;
@@ -324,6 +208,11 @@ public:
 		return indices.size()-1;
 	}
 	
+	int addPhysicalObject(PhysicObject obj){
+		physicObjects.push_back(obj);
+		return physicObjects.size()-1;
+	}
+	
 	int addLight(Sphere light){
 		lights.push_back(light);
 		return lights.size()-1;
@@ -339,6 +228,12 @@ public:
 			}
 		} else {
 			return &(lights[i - indices.size()]);
+		}
+	}
+	
+	PhysicObject* getPhysicObject(int i){
+		if((unsigned)i < physicObjects.size()){
+			return &physicObjects[i];
 		}
 	}
 	
@@ -359,7 +254,7 @@ public:
 			if(indices[i].obj_type == Obj::SPHERE){
 				return spheres[indices[i].i].intersect(o, d, getAll);
 			} else {
-				return plans[indices[i].i].intersect(o, d);
+				return plans[indices[i].i].intersect(o, d, camera);
 			}
 		} else if(!nolight){
 			return lights[i-indices.size()].intersect(o, d, false);
@@ -447,6 +342,8 @@ private:
 	
 	std::vector<Sphere> spheres;
 	std::vector<Plan> plans;
+	
+	std::vector<PhysicObject> physicObjects;
 };
 
 struct Impact{
@@ -488,6 +385,9 @@ Impact getNearestImpact(Vec o, Vec d, World& world){
 }
 
 bool shadowRay(Vec pI, Vec L, World& world, unsigned lampe, int i){
+	if(world.getType(i) == Obj::PLAN)
+		return false;
+
 	Sphere light = world.lights[lampe];
 	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
 		if((int)obstacle == i || obstacle == lampe + world.size(false)){
@@ -634,6 +534,8 @@ Color raytrace(World* world, Vec origine, Vec direction, int depth = 0){
 							Vec refract2 = (Aprime2+B_2)*-1;
 							
 							transmission = raytrace(world, pI2, refract2*1000, depth+1)*transmis2;
+							
+							transmission = transmission.mix(world->getColor(i, pI));
 						}
 					}
 					

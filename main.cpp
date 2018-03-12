@@ -12,15 +12,12 @@
 #include <boost/lexical_cast.hpp>
 #endif
 
-//#include "avlib.h"
 #include <typeinfo>
 #include <vector>
 #include <chrono>
 #include <thread>
 #include <mutex>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
-//#include <boost/date_time/posix_time/posix_time.hpp>
-//#include <date_time/gregorian/gregorian_types.hpp>
 #include <future>
 
 #define MAX(a, b) (((a > b))?(a):(b))
@@ -45,6 +42,9 @@ std::vector<int> renderTimeAverage = std::vector<int>(5);
 
 #include "allegro/allegro.h"
 #include "raytracer.h"
+#include "phys.hpp"
+#include "math.hpp"
+
 
 using namespace std;
 
@@ -67,29 +67,6 @@ void rotateSphere(Sphere* sphere, Vec point, Vec axis, double angle_deg, double 
 	
 	sphere->ct = nouv_ct;
 }
-
-//void rotatePlanet(World* world, Sphere* sp, Vec point, double incl, double angle_deg, int r){
-//	
-//	double angle = PI*angle_deg/180;
-//	
-//	double inclinaison = PI*incl/180;
-//	
-//	double theta = world->correction - inclinaison;
-//	double phi = 0;
-//	
-//	//Vec axis = Vec(1000.0, 0.1, 0.1).rotate(inclinaison, Vec(0, 1, 0));
-//	
-//	//Vec er(cos(theta), sin(theta)*sin(phi), sin(theta)*cos(phi));
-//	Vec er(sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta));
-//	
-//	//std::cout << (string)er << endl;
-//	
-//	Vec temp = er * r;
-//	
-//	Vec nouv_ct = temp.rotate(angle, er ^ Vec(1, 1, 1)) + point;
-//	
-//	sp->ct = nouv_ct;
-//}
 
 void rotateSphere2Axis(Sphere* sphere, Vec point, double theta, double phi, double r){
 	theta = PI/2 -PI*theta/180;
@@ -137,21 +114,19 @@ double tTestProfondeur = 0;
 std::vector<int> theTest;
 //Sphere cameraSphere = Sphere(camera, 5, Color(0, 0, 0));
 
+int physObjectSphereIndex = 0;
+int physObjectIndex = 0;
+
 void animate(Allegro* allegro, float FPS){
 	World* world_ptr = (World*)allegro->getContext();
 
 	
 	Sphere* mercure = ((Sphere*)world_ptr->getObject(0));
-	Sphere* venus = ((Sphere*)world_ptr->getObject(1));
-	Sphere* terre = ((Sphere*)world_ptr->getObject(2));
-	Sphere* lune = ((Sphere*)world_ptr->getObject(3));
-	Sphere* mars = ((Sphere*)world_ptr->getObject(4));
-	Sphere* jupiter = ((Sphere*)world_ptr->getObject(5));
-	Sphere* saturne = ((Sphere*)world_ptr->getObject(6));
-	Sphere* uranus = ((Sphere*)world_ptr->getObject(7));
-	Sphere* neptune = ((Sphere*)world_ptr->getObject(8));
 	
-	//Sphere* test = ((Sphere*)world_ptr->getObject(9));
+	Sphere* physObjectSphere = ((Sphere*)world_ptr->getObject(physObjectSphereIndex));
+	
+	PhysicObject* physObject = world_ptr->getPhysicObject(physObjectIndex);
+	
 	
 	Sphere soleil = world_ptr->lights[0];
 	
@@ -159,71 +134,26 @@ void animate(Allegro* allegro, float FPS){
 	
 	/* Animation */
 	
-	const int rRef = 83.23*soleil.r / 10; // on divise par 10 les rayons réels afin de pouvoir voir toutes les planètes
-	//const int rayon_mercure = 57909176; // juste pour info
+	const int rRef = 83.23*soleil.r / 10;
 	Vec axeRotation = Vec(1, 0, 0);
 	
 	rotateSphere(mercure, soleil.ct, axeRotation, angleMercure, rRef, 0.205630690);
-	//rotateSphere2Axis(mercure, world_ptr->light.ct, 0, angleMercure, rRef); // Rotation sphérique :D
-	
-	//rotatePlanet(world_ptr, venus, world_ptr->light.ct, 1, angleVenus, rRef*1.868597301);
-	rotateSphere(venus, soleil.ct, axeRotation, angleVenus, rRef*1.868597301, 0.006800000);
-	rotateSphere(terre, soleil.ct, axeRotation, angleTerre, rRef*2.583319214, 0.016710220);
-	rotateSphere(lune, terre->ct, axeRotation, angleLune, rRef*0.552537013, 0.0549);
-	rotateSphere(mars, soleil.ct, axeRotation, angleMars, rRef*3.936105687, 0.093412330);
-	rotateSphere(jupiter, soleil.ct, axeRotation, angleJupiter, rRef*pow(13.441946178, 0.8), 0.048392660); // Sinon elle est trop loin
-	rotateSphere(saturne, soleil.ct, axeRotation, angleSaturne, rRef*pow(24.54152986, 0.8), 0.054150600);
-	rotateSphere(uranus, soleil.ct, axeRotation, angleUranus, rRef*pow(49.675703933, 0.8), 0.044405586);
-	rotateSphere(neptune, soleil.ct, axeRotation, angleNeptune, rRef*pow(77.767358682, 0.8), 0.008585870);
-	
-	//rotateSphere2Axis(test, world_ptr->light.ct, angleTest1, angleTest2, rRef*2);
-	
+
 	angleInc(&angleTest1, 2/FPS);
 	angleInc(&angleTest2, vRef*8/FPS);
 	
-	//rotateSphere(second_light, venus->ct, axeRotation, angleTest2, rRef*0.3, 0);
-//	rotateSphere(&cameraSphere, world_ptr->light.ct, rotationCamera, 100000);
-//	camera = cameraSphere.ct;
 	
 	
 	angleInc(&angleMercure, vRef*4.181917279/FPS); // vitesse angulaire en degré par jour
-	angleInc(&angleVenus, vRef*1.602099239/FPS);
-	angleInc(&angleTerre, vRef*0.985452303/FPS);
-	angleInc(&angleLune, vRef*13.153801358/FPS);
-	angleInc(&angleMars, vRef*0.522755161/FPS);
-	angleInc(&angleJupiter, vRef*0.082992214/FPS);
-	angleInc(&angleSaturne, vRef*0.03357874/FPS);
-	angleInc(&angleUranus, vRef*0.011719041/FPS);
-	angleInc(&angleNeptune, vRef*0.005968861/FPS);
-//	
-//	angleInc(&rotationCamera, 1/FPS);
+
 	
 	temps += vRef/FPS;
 	
+
+//Color(127*sin(angleTest1 + 0) + 128, 127*sin(angleTest1 + 2*PI/3) + 128, 127*sin(angleTest1 + 4*PI/3) + 128);
 	
-	double lacetRad = PI*world_ptr->lacet / 180 + PI/2;
-	//double roulisRad = PI*world_ptr->roulis / 180;
+	physObjectSphere->ct = physObject->getPos();
 	
-	double dist = 300;
-	Vec temp = Vec(0, 1, 1)*dist;
-	
-	Vec rotation = temp.rotate2(-lacetRad, 0, Vec(1, 0, 0));
-	//Vec rotationLacet = temp.rotate(lacetRad, Vec(1, 0, 0));
-	//Vec rotationRoulis = (Vec(1, 0, 1)*dist).rotate(roulisRad, Vec(0, 1, 0));
-	
-	for (unsigned j = 0; j < 5; j++){
-		for(unsigned i = 0; i < 5; i++){
-			Sphere* sp = ((Sphere*)world_ptr->getObject(9+j+i*5));
-			Vec pos = Vec((2*sp->r)*j, (2*sp->r)*i, 0.0);
-			Vec new_ct = pos.rotate(-lacetRad + PI/2, Vec(1, 0, 0))/*.rotate(roulisRad, Vec(0, 1, 0))*/ + rotation + soleil.ct;
-			//Vec new_ct = sp->ct.rotate(angleTest1, Vec(1, 0, 0)) + (Vec(1, 0, 0)-sp->ct);
-			//sp->color = Color(127*sin(angleTest1 + 0) + 128, 127*sin(angleTest1 + 2*PI/3) + 128, 127*sin(angleTest1 + 4*PI/3) + 128);
-			sp->ct = new_ct;
-		}
-	}
-	
-//	Sphere* refTest = ((Sphere*)world_ptr->getObject(reflectTest));
-//	refTest->ct = Vec(world_ptr->roulis, world_ptr->lacet, tTestProfondeur);
 }
 
 Vec screenPixRotate(int x, int y, double angle, Vec axis, Vec camera, Allegro* allegro){
@@ -253,7 +183,6 @@ void disableHPerf(Allegro* allegro, Button* btn){
 string getDate(double temps){
 	using namespace boost::gregorian;
 	stringstream dtstream;
-	//chrono::time_point<chrono::system_clock> 7mars2009;
 	date t0 = date(2009, 03, 7);
 	date now = (t0 + days((int)temps));
 	dtstream << now.day() << "/" << now.month() << "/" << now.year();
@@ -366,17 +295,6 @@ void mouseClick(Allegro* allegro, void* context, uint16_t event, int x, int y){
 	}
 }
 
-void rotateTest(World* world, Allegro* allegro){
-	allegro->getGUI()->displayMessage("Disabled", 4000);
-//	Sphere* tTest = ((Sphere*)world->getObject(turnTest));
-//	Sphere* refTest = ((Sphere*)world->getObject(reflectTest)); // Sphere autour de laquelle on tourne
-//	//Vec rotate = refTest->getNormale(tTest->ct);
-//	
-//	
-//	Vec new_ct = tTest->ct - refTest->ct;
-//	tTest->ct = new_ct.rotate(PI, refTest->getNormale(tTest->ct) ^ Vec(1, 1, 1)) + refTest->ct;
-}
-
 void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 	World* world = (World*)context;
 	if(event == Allegro::KEY_DOWN){
@@ -387,18 +305,11 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 				allegro->toggleFullscreen(false);
 				break;
 			case ALLEGRO_KEY_F:
-				//cout << (allegro->isKeyDown(ALLEGRO_KEY_ALT) &&  allegro->isKeyDown(ALLEGRO_KEY_LCTRL)) << endl;
-				//flush(cout);
 				if(allegro->isKeyDown(ALLEGRO_KEY_ALT) &&  allegro->isKeyDown(ALLEGRO_KEY_LCTRL)){
 					allegro->toggleFullscreen(true);
 				}
 				break;
-//			case ALLEGRO_KEY_UP:
-//				world->offset_z += 5;
-//				break;
-//			case ALLEGRO_KEY_DOWN:
-//				world->offset_z -= 5;
-//				break;
+
 			if(allegro->isKeyDown(ALLEGRO_KEY_LSHIFT)){
 				case ALLEGRO_KEY_RIGHT:
 				{
@@ -458,40 +369,41 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			}
 			case ALLEGRO_KEY_C:
 			{
-				for(unsigned i = 0; i<theTest.size(); i++){
-					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-					sp->n += 0.1;
-				}
-				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
-				world->correction = sp1->n;
+//				for(unsigned i = 0; i<theTest.size(); i++){
+//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
+//					sp->n += 0.1;
+//				}
+//				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
+//				world->correction = sp1->n;
 				
 			}
 				break;
 			case ALLEGRO_KEY_V:
 			{
-				for(unsigned i = 0; i<theTest.size(); i++){
-					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-					sp->n -= 0.1;
-				}
-				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
-				world->correction = sp1->n;
+//				for(unsigned i = 0; i<theTest.size(); i++){
+//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
+//					sp->n -= 0.1;
+//				}
+//				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
+//				world->correction = sp1->n;
 			}
 				break;
 			case ALLEGRO_KEY_T:
 				stringstream message;
-				message << "Test réflection ";
-				Sphere* sp = (Sphere*)world->getObject(theTest[0]);
-				const bool hidden = sp->hidden;
-				if(hidden){
-					message << "activé";
-				} else {
-					message << "désactivé";
-				}
+				message << "Sans effet";
 				allegro->getGUI()->displayMessage(message.str(), 3500);
-				for(unsigned i = 0; i<theTest.size(); i++){
-					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-					sp->hidden = (hidden)?false:true;
-				}
+//				Sphere* sp = (Sphere*)world->getObject(theTest[0]);
+//				const bool hidden = sp->hidden;
+//				if(hidden){
+//					message << "activé";
+//				} else {
+//					message << "désactivé";
+//				}
+//				allegro->getGUI()->displayMessage(message.str(), 3500);
+//				for(unsigned i = 0; i<theTest.size(); i++){
+//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
+//					sp->hidden = (hidden)?false:true;
+//				}
 				//rotateTest(world, allegro);
 				break;
 				
@@ -547,14 +459,12 @@ int main(int argc, char **argv)
 	world.allegro = allegro;
 	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	
-	world.addLight(Sphere(Vec(WIDTH/2, HEIGHT/2, 0), 60, Color(255, 255, 150)));
-	//world.lights.push_back();
+	world.addLight(Sphere(Vec(WIDTH/2, HEIGHT/2, 0), 20, Color(255, 255, 150)));
 	
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
 	
 	
-	//world.light = Sphere(Vec(WIDTH/2, HEIGHT/2, 0), 60, Color(255, 255, 150));
 	world.camera = Vec((double)(WIDTH/2), (double)(HEIGHT/2), -fov);
 	
 	//world.addLight(Sphere(world.camera - Vec(0, 0, -15), 5, Color(255, 255, 255)*0.2));
@@ -564,76 +474,26 @@ int main(int argc, char **argv)
 	const int rayon_planetes = 30*world.lights[0].r;
 
 	//Mercure
-	world.addObject(Sphere(Vec(), 0.00701308*rayon_planetes, Color(100, 100, 100)));
-	
-	//Vénus
-	world.addObject(Sphere(Vec(), 0.017396866*rayon_planetes, Color(200, 250, 200)));
-	
-	//Terre
-	world.addObject(Sphere(Vec(), 0.018335489*rayon_planetes, Color(0, 50, 255)));
-
-	//Lune
-	world.addObject(Sphere(Vec(), 0.002496766*rayon_planetes, Color(100, 100, 100)));
-	
-	//Mars
-	world.addObject(Sphere(Vec(), 0.009762829*rayon_planetes, Color(255, 100, 100)));
-	
-	//Jupiter
-	world.addObject(Sphere(Vec(), 0.211828148/5*rayon_planetes, Color(255, 50, 50))); // Sinon elle est VRAIMENT trop grosse
-
-	//Saturne
-	world.addObject(Sphere(Vec(), 0.178571852/5*rayon_planetes, Color(80, 255, 255))); // Sinon elle est VRAIMENT trop grosse
-	
-	//Uranus
-	world.addObject(Sphere(Vec(), 0.07573037/5*rayon_planetes, Color(0, 50, 220))); // Sinon elle est VRAIMENT trop grosse
-	
-	//Neptune
-	world.addObject(Sphere(Vec(), 0.073374815/5*rayon_planetes, Color(0, 0, 255))); // Sinon elle est VRAIMENT trop grosse
+	Sphere merc(Vec(), 0.00701308*rayon_planetes, Color(100, 100, 100));
+	merc.hidden = true;
+	world.addObject(merc);
 	
 	
-//	for (unsigned i = 0; i < 9; i++){
-//		Sphere* sp = (Sphere*)world.getObject(i);
-//		sp->reflectiveness = 1;
-//		sp->opacity = 0.4;
-//	}
-//	
-	// test rotation
+	PhysicObject pomme(rtToPhys(world.camera)+Vec(0, 0, 30), Vec(0, 100, 300), 1.5);
 	
+	physObjectIndex = world.addPhysicalObject(pomme);
 	
-	for (unsigned j = 0; j < 5; j++){
-		for (unsigned i = 0; i<5; i++){
-			Vec ct = Vec(0, 0, 0);
-			//Vec ct = Vec(20.0*j, 20.0*i + 30, -world.lights[0].ct._z).rotate(180, Vec(1, 0, 0));
-			Sphere sp = Sphere(ct, 10, Color(255, 255, 255));
-			sp.hidden = true;
-			sp.opacity = 0.1;
-			sp.reflectiveness = 1;
-			sp.n = world.correction;
-			theTest.push_back(world.addObject(sp));
-		}
-	}
+	Sphere pommeSphere(pomme.getPos(), 10, Color(255, 0, 0), 1.5);
 	
-	// Test reflexion
+	pommeSphere.opacity = 0.3;
 	
-//	Sphere sp = Sphere(world.light.ct + Vec(100, 0, 0), 20, Color(0, 0, 0));
-//	sp.reflectiveness = 0.5;
-//	sp.hidden = true; // Sphere masquée (et même désactivée)
-//	reflectTest = world.addObject(sp);
-//	
-//	Sphere sp2 = Sphere(Vec(), 20, Color(255, 255, 255));
-//	sp2.hidden = true; // Sphere masquée (et même désactivée)
-//	turnTest = world.addObject(sp2);
+	physObjectSphereIndex = world.addObject(pommeSphere);
 	
-	// Test overload
+	Vec a = Vec(allegro->getDisplayHeight(),0,0);
 	
-	//for (unsigned i = 0; i<= 50; i++){
-	//	world.addObject(Sphere(Vec(), 10, Color(0, 0, 0)));
-	//}
+	Plan p = Plan(a, (a+Vec(0, 0, 100)), (a+Vec(0, 100, 0)), Color(150, 150, 150), true);
 	
-	// Test Sphere
-	//world.addObject(Sphere(Vec(), 20, Color(255, 255, 255)));
-	
-	//world.addObject(Plan(Vec(allegro->getDisplayHeight()+10, 0, 0), Vec(1, 0, 0), Color(255, 255, 255), true));
+	world.addObject(p);
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);
