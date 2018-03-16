@@ -57,17 +57,42 @@ public:
 	
 	time_point<high_resolution_clock> tSpeed;
 	time_point<high_resolution_clock> tPos;
+	time_point<high_resolution_clock> t0;
 
 	double roulis = 0, lacet = 0, tanguage = 0;
+	
+	ofstream courbes;
 	
 	PhysicObject(Vec p0, Vec v0 = Vec(0,0,0), double m = 1, double q = 0, double fluidK = 0.01){
 		tSpeed = high_resolution_clock::now();
 		tPos = high_resolution_clock::now();
+		t0 = high_resolution_clock::now();
 		mass = m;
 		speed = v0;
 		pos = p0;
 		charge = q;
 		fluidFrictionCoeff = fluidK;
+	}
+
+	~PhysicObject(){
+		if(courbes.is_open())
+			courbes.close();
+	}
+	
+	bool recordData(string filename){
+		courbes.open(filename, ios::out);
+		if(courbes.bad())
+			return false;
+		courbes << "t;y;v_y;a_y;rpm" << endl;
+		if(courbes.good())
+			return true;
+	}
+	
+	void saveData(){
+		time_point<high_resolution_clock> t = high_resolution_clock::now();
+		duration<double, std::ratio<1> > dt = t-t0;
+		
+		courbes << dt.count() << ";" << pos._y << ";" << speed._y << ";" << precAccel._y << ";" << rpm << endl;
 	}
 
 //	Vec getEarthAxis(){
@@ -102,7 +127,7 @@ public:
 		return direction*coeff*pow(rpm, power)*0.001*9.81; // The last coeffs are here to convert gF (gramm Force) to Newtons.
 	}
 	
-	double rpm = 10000;
+	double rpm = 0;
 	double asservissementV(Vec speed){
 		if(isnan(speed._y)){
 			return 0;
@@ -116,13 +141,57 @@ public:
 		return between(rpm, 0, 10000);
 	}
 
+	double bestEquilibre(Vec accel, double mass, double coeff = 8.3e-5, double power = 1.8512){
+		return pow((1000/4)*(mass/coeff), 1/power);
+	}
+
+	double asservAlt(double alt, Vec pos, Vec speed, Vec accel, double coeff = 8.3e-5, double power = 1.8512){
+		double equilibre = bestEquilibre(accel, mass, coeff, power);
+		cout << "\t eq : " << equilibre << endl;
+		double res = 0;
+		if(isnan(pos._y)){
+			return 0;
+		}
+		double delta = between(100*(alt-pos._y)/between(abs(speed._y), 1, 10), -equilibre*0.25, equilibre*0.25);//1.2*abs(speed._y)*abs(pos._y-alt)/alt;
+		res = equilibre + delta;
+		rpm = between(res, 0, 10000);
+		return rpm;
+	}
+	
+	
+//	double delta_rpm = 0;
+//	double asserv(double alt, Vec pos, Vec speed, Vec accel, double mass, double coeff = 8.3e-5, double power = 1.8512){
+//		double base_rpm = pow((1000/4*mass/coeff), 1/power);
+//		
+//		if(isnan(pos._y)){
+//			delta_rpm = 0;
+//		}
+//		
+//		double step = 1.2*abs(speed._y)*abs(pos._y-alt)/alt;
+//		if(pos._y > alt){
+//			delta_rpm -= step;
+//		} else{
+//			delta_rpm += step;
+//		}
+//		if(pos._y < 1){
+//			delta_rpm = 10000;
+//		}
+//		delta_rpm = between(delta_rpm, -base_rpm/2, (10000-base_rpm/2));
+//		
+//		return between(base_rpm + delta_rpm, 0, 10000);
+//	}
+
 	Vec getAccel(){
 		Vec normReac(0,0,0);
 		Vec force = weight(mass) + fluidFriction(fluidFrictionCoeff, speed, 2) /*+ solidFriction(0.6, speed, Vec(0, 9.81*mass, 0), Vec(1, 0, 0))*/;
 		
-		force += thrust(asservissementV(speed), force.normalize()*-1)*4;
+		//asservAccel(force/mass, mass);
+		//asservissementV(speed);
+		rpm = asservAlt(15, pos, speed, force/mass);
+		//double rp = asserv(80, pos, speed, force/mass, mass);
+		force += thrust(rpm, force.normalize()*-1)*4;
 		
-		cout << rpm << ", " << speed._y << endl;
+		cout << "RPM : " << rpm << ", a_y=" << force._y/mass << ", v_y= " << speed._y << ", y= " << pos._y << endl;
 		
 		precAccel = force/mass;
 		return force/mass;
@@ -156,12 +225,15 @@ public:
 	Vec getPos(){
 		updatePos();
 		
+		if(courbes.is_open())
+			saveData();
+		
 		Vec raytracingCompatibility(-pos._y, pos._x, pos._z);
 		
 		return raytracingCompatibility;
 	}
-
 };
 
+// 2638 lines of code at 21:21 03/13/2018 :D
 
 #endif

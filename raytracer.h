@@ -208,7 +208,7 @@ public:
 		return indices.size()-1;
 	}
 	
-	int addPhysicalObject(PhysicObject obj){
+	int addPhysicalObject(PhysicObject* obj){
 		physicObjects.push_back(obj);
 		return physicObjects.size()-1;
 	}
@@ -233,7 +233,7 @@ public:
 	
 	PhysicObject* getPhysicObject(int i){
 		if((unsigned)i < physicObjects.size()){
-			return &physicObjects[i];
+			return physicObjects[i];
 		}
 	}
 	
@@ -343,7 +343,7 @@ private:
 	std::vector<Sphere> spheres;
 	std::vector<Plan> plans;
 	
-	std::vector<PhysicObject> physicObjects;
+	std::vector<PhysicObject*> physicObjects;
 };
 
 struct Impact{

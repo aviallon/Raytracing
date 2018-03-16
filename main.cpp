@@ -388,24 +388,6 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 //				world->correction = sp1->n;
 			}
 				break;
-			case ALLEGRO_KEY_T:
-				stringstream message;
-				message << "Sans effet";
-				allegro->getGUI()->displayMessage(message.str(), 3500);
-//				Sphere* sp = (Sphere*)world->getObject(theTest[0]);
-//				const bool hidden = sp->hidden;
-//				if(hidden){
-//					message << "activé";
-//				} else {
-//					message << "désactivé";
-//				}
-//				allegro->getGUI()->displayMessage(message.str(), 3500);
-//				for(unsigned i = 0; i<theTest.size(); i++){
-//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-//					sp->hidden = (hidden)?false:true;
-//				}
-				//rotateTest(world, allegro);
-				break;
 				
 		}
 	} else {
@@ -459,7 +441,7 @@ int main(int argc, char **argv)
 	world.allegro = allegro;
 	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	
-	world.addLight(Sphere(Vec(WIDTH/2, HEIGHT/2, 0), 20, Color(255, 255, 150)));
+	world.addLight(Sphere(physToRt(Vec(0, 0, 100)), 10, Color(255, 255, 150)));
 	
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
@@ -479,21 +461,25 @@ int main(int argc, char **argv)
 	world.addObject(merc);
 	
 	
-	PhysicObject pomme(rtToPhys(world.camera)+Vec(0, 0, 30), Vec(0, 100, 300), 1.5);
+	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 1.5, 1, 0.01);
+	drone.recordData("drone.csv");
 	
-	physObjectIndex = world.addPhysicalObject(pomme);
+	physObjectIndex = world.addPhysicalObject(&drone);
 	
-	Sphere pommeSphere(pomme.getPos(), 10, Color(255, 0, 0), 1.5);
+	Sphere droneSphere(drone.getPos(), 3, Color(255, 0, 0), 2);
 	
-	pommeSphere.opacity = 0.3;
+	droneSphere.opacity = 0.3;
 	
-	physObjectSphereIndex = world.addObject(pommeSphere);
+	physObjectSphereIndex = world.addObject(droneSphere);
 	
-	Vec a = Vec(allegro->getDisplayHeight(),0,0);
+	//Vec a = Vec(allegro->getDisplayHeight(),0,0);
 	
-	Plan p = Plan(a, (a+Vec(0, 0, 100)), (a+Vec(0, 100, 0)), Color(150, 150, 150), true);
+	//Plan p = Plan(a, (a+Vec(0, 0, 100)), (a+Vec(0, 100, 0)), Color(150, 150, 150), true);
 	
-	world.addObject(p);
+	//world.addObject(p);
+	
+	Sphere sol(physToRt(Vec(0, 0, 0)), 3, Color(255, 255, 255));
+	world.addObject(sol);
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);
