@@ -369,23 +369,14 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			}
 			case ALLEGRO_KEY_C:
 			{
-//				for(unsigned i = 0; i<theTest.size(); i++){
-//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-//					sp->n += 0.1;
-//				}
-//				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
-//				world->correction = sp1->n;
-				
+				PhysicObject* drone = world->getPhysicObject(physObjectIndex);
+				drone->Kc1-=10;
 			}
 				break;
 			case ALLEGRO_KEY_V:
 			{
-//				for(unsigned i = 0; i<theTest.size(); i++){
-//					Sphere* sp = (Sphere*)world->getObject(theTest[i]);
-//					sp->n -= 0.1;
-//				}
-//				Sphere* sp1 = (Sphere*)world->getObject(theTest[0]);
-//				world->correction = sp1->n;
+				PhysicObject* drone = world->getPhysicObject(physObjectIndex);
+				drone->Kc1+=10;
 			}
 				break;
 				
@@ -441,7 +432,7 @@ int main(int argc, char **argv)
 	world.allegro = allegro;
 	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	
-	world.addLight(Sphere(physToRt(Vec(0, 0, 100)), 10, Color(255, 255, 150)));
+	world.addLight(Sphere(physToRt(Vec(0, 150, 70)), 10, Color(255, 255, 170)));
 	
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
@@ -466,7 +457,7 @@ int main(int argc, char **argv)
 	
 	physObjectIndex = world.addPhysicalObject(&drone);
 	
-	Sphere droneSphere(drone.getPos(), 3, Color(255, 0, 0), 2);
+	Sphere droneSphere(drone.getPos(), 0.5, Color(255, 0, 0), 2);
 	
 	droneSphere.opacity = 0.3;
 	
@@ -478,8 +469,12 @@ int main(int argc, char **argv)
 	
 	//world.addObject(p);
 	
-	Sphere sol(physToRt(Vec(0, 0, 0)), 3, Color(255, 255, 255));
+	Sphere sol(physToRt(Vec(0, -6000*1000, 0)), 6000*1000, Color(58, 157, 35));
 	world.addObject(sol);
+	
+	world.offset_y = -world.camera._y;
+	world.offset_x = -10 - world.camera._x;
+	world.offset_z = -80 - world.camera._z;
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);

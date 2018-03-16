@@ -57,19 +57,29 @@ public:
 	
 	time_point<high_resolution_clock> tSpeed;
 	time_point<high_resolution_clock> tPos;
+	time_point<high_resolution_clock> tSave;
 	time_point<high_resolution_clock> t0;
 
 	double roulis = 0, lacet = 0, tanguage = 0;
+	
+	Vec positionConsigne;
+	
+	double Kc1 = 1000;
+	double Kc2 = 1;
+	double Kcapm = 1;
+	double KcapM = 10;
 	
 	ofstream courbes;
 	
 	PhysicObject(Vec p0, Vec v0 = Vec(0,0,0), double m = 1, double q = 0, double fluidK = 0.01){
 		tSpeed = high_resolution_clock::now();
 		tPos = high_resolution_clock::now();
+		tSave = high_resolution_clock::now();
 		t0 = high_resolution_clock::now();
 		mass = m;
 		speed = v0;
 		pos = p0;
+		positionConsigne = Vec(0, 10, 0);
 		charge = q;
 		fluidFrictionCoeff = fluidK;
 	}
@@ -90,9 +100,25 @@ public:
 	
 	void saveData(){
 		time_point<high_resolution_clock> t = high_resolution_clock::now();
+		duration<double, std::ratio<1> > dtSave = t-tSave;
+		time_point<high_resolution_clock> tSave = high_resolution_clock::now();
+		
 		duration<double, std::ratio<1> > dt = t-t0;
 		
-		courbes << dt.count() << ";" << pos._y << ";" << speed._y << ";" << precAccel._y << ";" << rpm << endl;
+		if(dtSave.count() > 0.05){
+			courbes << dt.count() << ";" << pos._y << ";" << speed._y << ";" << precAccel._y << ";" << rpm << endl;
+		}
+		cout << "Save !" << endl;
+	}
+	
+	void setConsignePos(Vec posConsigne){
+		posConsigne = rtToPhys(posConsigne);
+		if(posConsigne._y > 1)
+			positionConsigne = positionConsigne;
+	}
+	
+	Vec getConsignePos(){
+		return physToRt(positionConsigne);
 	}
 
 //	Vec getEarthAxis(){
@@ -148,38 +174,17 @@ public:
 	double asservAlt(double alt, Vec pos, Vec speed, Vec accel, double coeff = 8.3e-5, double power = 1.8512){
 		double equilibre = bestEquilibre(accel, mass, coeff, power);
 		cout << "\t eq : " << equilibre << endl;
+		cout << "\t Kc1 : " << Kc1 << endl;
 		double res = 0;
 		if(isnan(pos._y)){
 			return 0;
 		}
-		double delta = between(100*(alt-pos._y)/between(abs(speed._y), 1, 10), -equilibre*0.25, equilibre*0.25);//1.2*abs(speed._y)*abs(pos._y-alt)/alt;
+		double delta = between(Kc1*(alt-pos._y)/between(Kc2*abs(speed._y), Kcapm, KcapM), -equilibre*0.8, equilibre*0.8);//1.2*abs(speed._y)*abs(pos._y-alt)/alt;
 		res = equilibre + delta;
 		rpm = between(res, 0, 10000);
 		return rpm;
 	}
 	
-	
-//	double delta_rpm = 0;
-//	double asserv(double alt, Vec pos, Vec speed, Vec accel, double mass, double coeff = 8.3e-5, double power = 1.8512){
-//		double base_rpm = pow((1000/4*mass/coeff), 1/power);
-//		
-//		if(isnan(pos._y)){
-//			delta_rpm = 0;
-//		}
-//		
-//		double step = 1.2*abs(speed._y)*abs(pos._y-alt)/alt;
-//		if(pos._y > alt){
-//			delta_rpm -= step;
-//		} else{
-//			delta_rpm += step;
-//		}
-//		if(pos._y < 1){
-//			delta_rpm = 10000;
-//		}
-//		delta_rpm = between(delta_rpm, -base_rpm/2, (10000-base_rpm/2));
-//		
-//		return between(base_rpm + delta_rpm, 0, 10000);
-//	}
 
 	Vec getAccel(){
 		Vec normReac(0,0,0);
@@ -187,15 +192,13 @@ public:
 		
 		//asservAccel(force/mass, mass);
 		//asservissementV(speed);
-		rpm = asservAlt(15, pos, speed, force/mass);
-		//double rp = asserv(80, pos, speed, force/mass, mass);
+		rpm = asservAlt(positionConsigne._y, pos, speed, force/mass);
 		force += thrust(rpm, force.normalize()*-1)*4;
 		
 		cout << "RPM : " << rpm << ", a_y=" << force._y/mass << ", v_y= " << speed._y << ", y= " << pos._y << endl;
 		
 		precAccel = force/mass;
 		return force/mass;
-		//return Vec(0,0,0);
 	}
 
 	void updateSpeed(){
