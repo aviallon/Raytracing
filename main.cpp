@@ -116,43 +116,38 @@ std::vector<int> theTest;
 
 int physObjectSphereIndex = 0;
 int physObjectIndex = 0;
+int droneTagIndex = 0;
 
 void animate(Allegro* allegro, float FPS){
 	World* world_ptr = (World*)allegro->getContext();
-
-	
-	Sphere* mercure = ((Sphere*)world_ptr->getObject(0));
 	
 	Sphere* physObjectSphere = ((Sphere*)world_ptr->getObject(physObjectSphereIndex));
 	
 	PhysicObject* physObject = world_ptr->getPhysicObject(physObjectIndex);
 	
+	Text3D* droneTag = world_ptr->getTextTag(droneTagIndex);
 	
-	Sphere soleil = world_ptr->lights[0];
+	
+	//Sphere soleil = world_ptr->lights[0];
 	
 	//Sphere* second_light = &(world_ptr->lights[1]);
 	
 	/* Animation */
 	
-	const int rRef = 83.23*soleil.r / 10;
-	Vec axeRotation = Vec(1, 0, 0);
+	chrono::time_point<high_resolution_clock> t = chrono::high_resolution_clock::now();
+	duration<double, std::ratio<1> > dt = t - physObject->t0;
 	
-	rotateSphere(mercure, soleil.ct, axeRotation, angleMercure, rRef, 0.205630690);
-
-	angleInc(&angleTest1, 2/FPS);
-	angleInc(&angleTest2, vRef*8/FPS);
-	
-	
-	
-	angleInc(&angleMercure, vRef*4.181917279/FPS); // vitesse angulaire en degré par jour
-
-	
-	temps += vRef/FPS;
+	temps = dt.count();
 	
 
 //Color(127*sin(angleTest1 + 0) + 128, 127*sin(angleTest1 + 2*PI/3) + 128, 127*sin(angleTest1 + 4*PI/3) + 128);
+	Vec dronePos = physObject->getPos();
+	droneTag->setPos(dronePos+Vec(-1.8, 0, 0));
+	stringstream tag;
+	tag << physObject->rpm << " RPM";
+	droneTag->setText(string(tag.str()));
 	
-	physObjectSphere->ct = physObject->getPos();
+	physObjectSphere->ct = dronePos;
 	
 }
 
@@ -249,6 +244,9 @@ void redraw(Allegro* allegro, float FPS)
 	
 	allegro->unlockScreen();
 	
+	
+	world_ptr->drawTextTag(droneTagIndex);
+	
 	stringstream fps_disp;
 	
 	renderTimeAverage.push_back((getms() - t));
@@ -258,19 +256,22 @@ void redraw(Allegro* allegro, float FPS)
 	
 	allegro->draw_text(5, 10, fps_disp.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
-	allegro->draw_text(5, 30, getDate(temps), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
+	stringstream tmpStr;
+	tmpStr << round(temps*1000)/1000 << " s";
 	
-	stringstream vitesse;
-	vitesse << getDuration(vRef) << " / secondes";
+	allegro->draw_text(5, 30, tmpStr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
-	Color vitesse_color(255, 255, 255);
-	if(selector == 0){
-		vitesse_color = Color(255, 0, 0);
-	}
-	allegro->draw_text(5, 50, vitesse.str(), vitesse_color.toAllegro(), ALLEGRO_ALIGN_LEFT);
+	
+	PhysicObject* drone = world_ptr->getPhysicObject(physObjectIndex);
+	
+	stringstream alt;
+	alt << round(drone->pos._y*100)/100 << " m";
+	
+	allegro->draw_text(5, 50, alt.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
+	
 	
 	stringstream corr;
-	corr << "N : " << round(world_ptr->correction*100)/100;
+	corr << "Kc1 : " << round(drone->Kc1*10)/10;
 	
 	allegro->draw_text(5, 70, corr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
@@ -331,6 +332,7 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			} else {
 				selector = -1;
 			}
+
 			case ALLEGRO_KEY_D:
 				angleInc(&(world->lacet), 1);
 				break;
@@ -432,7 +434,7 @@ int main(int argc, char **argv)
 	world.allegro = allegro;
 	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	
-	world.addLight(Sphere(physToRt(Vec(0, 150, 70)), 10, Color(255, 255, 170)));
+	world.addLight(Sphere(physToRt(Vec(0, 150, 0)), 10, Color(255, 255, 170)));
 	
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
@@ -443,13 +445,6 @@ int main(int argc, char **argv)
 	//world.addLight(Sphere(world.camera - Vec(0, 0, -15), 5, Color(255, 255, 255)*0.2));
 	
 	allegro->setContext(&world);
-
-	const int rayon_planetes = 30*world.lights[0].r;
-
-	//Mercure
-	Sphere merc(Vec(), 0.00701308*rayon_planetes, Color(100, 100, 100));
-	merc.hidden = true;
-	world.addObject(merc);
 	
 	
 	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 1.5, 1, 0.01);
@@ -463,12 +458,17 @@ int main(int argc, char **argv)
 	
 	physObjectSphereIndex = world.addObject(droneSphere);
 	
+	Text3D droneTag("Drone", drone.getPos()+Vec(1, 0, 0));
+	
+	droneTagIndex = world.addTextTag(droneTag);
+	
 	//Vec a = Vec(allegro->getDisplayHeight(),0,0);
 	
 	//Plan p = Plan(a, (a+Vec(0, 0, 100)), (a+Vec(0, 100, 0)), Color(150, 150, 150), true);
 	
 	//world.addObject(p);
 	
+	// The Earth
 	Sphere sol(physToRt(Vec(0, -6000*1000, 0)), 6000*1000, Color(58, 157, 35));
 	world.addObject(sol);
 	

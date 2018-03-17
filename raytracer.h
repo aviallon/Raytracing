@@ -23,6 +23,44 @@ const float fps(std::vector<int> renderTimeAverage){
 	return floor(10000/average)/10;
 }
 
+class Text3D{
+public:
+	Text3D(std::string text, Vec pos){
+		this->pos = pos;
+		this->text = text;
+	}
+	
+	void setText(std::string text){
+		this->text = text;
+	}
+	
+	std::string getText(){
+		return text;
+	}
+	
+	void setPos(Vec pos){
+		this->pos = pos;
+	}
+	
+	Vec getPos(){
+		return pos;
+	}
+	
+	void draw(Allegro* allegro, Vec camera){
+		const double fov = (WIDTH/2)/tan(15*PI/180);
+		Vec d = (pos - camera).normalize()*fov;
+		//cout << (string)d << endl;
+		Vec ex(1, 0, 0);
+		Vec ey(0, 1, 0);
+		double x = (d|ex)+allegro->getDisplayHeight()/2;
+		double y = (d|ey)+allegro->getDisplayWidth()/2;
+		allegro->draw_text(y, x, text, allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_CENTER);
+	}
+	
+	Vec pos;
+	std::string text;
+};
+
 class Plan{
 public:
 	Plan(Vec a, Vec b, Vec c, Color color, bool damier = false){
@@ -213,6 +251,11 @@ public:
 		return physicObjects.size()-1;
 	}
 	
+	int addTextTag(Text3D txtTag){
+		textTags.push_back(txtTag);
+		return textTags.size()-1;
+	}
+	
 	int addLight(Sphere light){
 		lights.push_back(light);
 		return lights.size()-1;
@@ -234,6 +277,18 @@ public:
 	PhysicObject* getPhysicObject(int i){
 		if((unsigned)i < physicObjects.size()){
 			return physicObjects[i];
+		}
+	}
+	
+	Text3D* getTextTag(int i){
+		if((unsigned)i < textTags.size()){
+			return &textTags[i];
+		}
+	}
+	
+	void drawTextTag(int i){
+		if((unsigned)i < textTags.size()){
+			textTags[i].draw(allegro, camera);
 		}
 	}
 	
@@ -319,7 +374,6 @@ public:
 	}
 	
 	std::vector<Sphere> lights;
-	//Sphere light = Sphere(Vec(0, 0, 0), 5, Color(255, 255, 255));
 	Vec camera;
 	
 	int offset_x = 0;
@@ -342,6 +396,8 @@ private:
 	
 	std::vector<Sphere> spheres;
 	std::vector<Plan> plans;
+	
+	std::vector<Text3D> textTags;
 	
 	std::vector<PhysicObject*> physicObjects;
 };
