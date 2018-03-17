@@ -38,14 +38,31 @@ void waitFor(int microsecs, bool threadSleep=false){
 	}
 }
 
+/**
+ * @brief Converts a Raytracing vector to a Physics vector
+ * @param v Vector to convert
+ * @return Returns converted vector
+ */
 Vec rtToPhys(Vec v){
 	return Vec(v._y, -v._x, v._z);
 }
 
+/**
+ * @brief Converts a Physics vector to a Raytracing vector
+ * @param v Vector to convert
+ * @return Returns converted vector
+ */
 Vec physToRt(Vec v){
 	return Vec(-v._y, v._x, v._z);
 }
 
+/**
+ * @class PhysicObject
+ * @author Antoine Viallon
+ * @date 17/03/18
+ * @file phys.hpp
+ * @brief Physics object, obeying laws of physics : they are submitted to weight, friction, and other things. Currently not really modular.
+ */
 class PhysicObject {
 public:
 	Vec precAccel;
