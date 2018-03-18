@@ -191,12 +191,17 @@ public:
 	double asservAlt(double alt, Vec pos, Vec speed, Vec accel, double coeff = 8.3e-5, double power = 1.8512){
 		double equilibre = bestEquilibre(accel, mass, coeff, power);
 		cout << "\t eq : " << equilibre << endl;
-		cout << "\t Kc1 : " << Kc1 << endl;
+		//cout << "\t Kc1 : " << Kc1 << endl;
 		double res = 0;
 		if(isnan(pos._y)){
 			return 0;
 		}
-		double delta = between(Kc1*(alt-pos._y)/between(Kc2*abs(speed._y), Kcapm, KcapM), -equilibre*0.8, equilibre*0.8);//1.2*abs(speed._y)*abs(pos._y-alt)/alt;
+		double vcoeff = 1;
+		if(speed._y > -1){
+			vcoeff = 0.5;
+		}
+		double delta = between(vcoeff*Kc1*(alt-pos._y), -equilibre*0.1, equilibre*0.4);
+		//double delta = between(Kc1*(alt-pos._y)/between(Kc2*abs(speed._y), Kcapm, KcapM), -equilibre*0.8, equilibre*0.8);//1.2*abs(speed._y)*abs(pos._y-alt)/alt;
 		res = equilibre + delta;
 		rpm = between(res, 0, 10000);
 		return rpm;

@@ -3,6 +3,7 @@
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_primitives.h>
 #include <cmath>
+#include <ctime>
 #include <numeric>
 
 #ifndef STRING_H_
@@ -270,10 +271,15 @@ void redraw(Allegro* allegro, float FPS)
 	allegro->draw_text(5, 50, alt.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
 	
+	stringstream speed;
+	speed << round(drone->speed._y*100)/100 << " m/s";
+	
+	allegro->draw_text(5, 70, speed.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
+	
 	stringstream corr;
 	corr << "Kc1 : " << round(drone->Kc1*10)/10;
 	
-	allegro->draw_text(5, 70, corr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
+	allegro->draw_text(5, 90, corr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
 	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2; // Required when resizing the display in order to move the camera accordingly
 }
@@ -422,6 +428,8 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 
 int main(int argc, char **argv)
 {
+	using namespace boost::gregorian;
+	
 	Allegro allegro_obj = Allegro();
 	Allegro* allegro = &allegro_obj;
     allegro->init();
@@ -446,9 +454,22 @@ int main(int argc, char **argv)
 	
 	allegro->setContext(&world);
 	
+	date aujourdhui = day_clock::local_day();
+	
+	time_t curr_time = time(NULL);
+	struct tm *aTime = localtime(&curr_time);
+	int year = aujourdhui.year();
+	int month = aujourdhui.month();
+	int day = aujourdhui.day();
+	int hour = aTime->tm_hour;
+	int min = aTime->tm_min;
+	int sec = aTime->tm_sec;
+	
+	stringstream filename;
+	filename << "drone-" << year << "-" << month << "-" << day << "-" << hour << "." << min << "." << sec << ".csv";
 	
 	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 1.5, 1, 0.01);
-	drone.recordData("drone.csv");
+	drone.recordData(filename.str());
 	
 	physObjectIndex = world.addPhysicalObject(&drone);
 	
