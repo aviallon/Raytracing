@@ -1,4 +1,6 @@
-#include <iostream>
+#include "includes.h"
+
+/*#include <iostream>
 #include <allegro5/allegro.h>
 #include <allegro5/allegro_image.h>
 #include <allegro5/allegro_primitives.h>
@@ -20,32 +22,30 @@
 #include <mutex>
 #include <boost/date_time/gregorian/gregorian_types.hpp>
 #include <future>
+#include <armadillo>
 
 #define MAX(a, b) (((a > b))?(a):(b))
 #define MIN(a, b) (((a < b))?(a):(b))
 #define PI 3.14159265359
 
 const signed int WIDTH = 500; // Taille **initiale** de la fenêtre
-const signed int HEIGHT = 500;
+const signed int HEIGHT = 500; */
 
 /* 07/03/2009
  * M	V	T	Ma	J	S	U	N
  * 281	153	207	307	308	168	352	324
  */
 
-double vRef = 2; // coefficient pour accelerer le mouvement des planetes
-
-short selector = -1;
-
-bool high_fps_mode = false;
-
 std::vector<int> renderTimeAverage = std::vector<int>(5);
 
+/*
 #include "allegro/allegro.h"
-#include "raytracer.h"
+#include "raytracer.hpp"
 #include "phys.hpp"
 #include "math.hpp"
+*/
 
+//bool world->high_fps_mode;
 
 using namespace std;
 
@@ -152,26 +152,47 @@ void animate(Allegro* allegro, float FPS){
 	
 }
 
-Vec screenPixRotate(int x, int y, double angle, Vec axis, Vec camera, Allegro* allegro){
+Vec screenPixRotate(int x, int y, Matrice& rotation, Allegro* allegro){
 	
-	double lacetRad = PI*angle / 180 + PI/2;
+	World* world = (World*)allegro->getContext();
 	
-	double dist = fov;
-	Vec temp = Vec(0, 1, 1)*dist;
+	Vec pos_center(allegro->getDisplayWidth()/2, fov, allegro->getDisplayHeight()/2);
+	Matrice pos_center_mtx(pos_center);
+	pos_center = (rotation*pos_center_mtx).toVec();
 	
-	Vec rotation = temp.rotate2(lacetRad, 0, Vec(0, 0, 1));
+	Vec pos(x-allegro->getDisplayWidth()/2, 0, y-allegro->getDisplayHeight()/2);
+	Matrice pos_mtx(pos);
 	
-	Vec pos = Vec(x-allegro->getDisplayWidth()/2, y-allegro->getDisplayHeight()/2, 0);
-	Vec new_pos = pos.rotate(lacetRad, Vec(0, 0, 1)) + rotation + camera;
+	Vec translation = (rotation*pos_mtx).toVec();
 	
-//	angle = PI*angle/180;
-//	return Vec(x, y, 0).rotate(angle, axis) + camera;
-	return new_pos;
+	return pos_center + translation + world->camera;
+}
+
+Matrice getRotationMatrix(Allegro* allegro){
+	
+	World* world = (World*)allegro->getContext();
+	
+	double lacetRad = PI*(world->lacet + 60) / 180;
+	double roulisRad = PI*(world->roulis) / 180;
+	double tanguageRad = PI*(world->tangage) / 180;
+	
+	Matrice lacetMat(Matrice::X, lacetRad);
+	Matrice roulisMat(Matrice::Y, roulisRad);
+	Matrice tanguageMat(Matrice::Z, -tanguageRad);
+	
+	Matrice rotation = lacetMat*tanguageMat*roulisMat;
+	
+	Vec pos_center = rotation*Vec(allegro->getDisplayWidth()/2, fov, allegro->getDisplayHeight()/2);
+	world->direction = pos_center;
+	
+	return rotation;
 }
 
 void disableHPerf(Allegro* allegro, Button* btn){
+	World* world = (World*)(allegro->getContext());
+	
 	allegro->getGUI()->displayMessage("High performance mode deactivated", 3000);
-	high_fps_mode = false;
+	world->high_fps_mode = false;
 	
 	allegro->getGUI()->eraseBtn(btn);
 }
@@ -206,20 +227,12 @@ void redraw(Allegro* allegro, float FPS)
 	
 	const Color black(0,0,0);
 	
-	World* world_ptr = (World*)allegro->getContext();
-	
-	World world2 = *world_ptr;
+	World* world = (World*)allegro->getContext();
 
-	world_ptr->camera = Vec((double)(WIDTH/2+world2.offset_x), (double)(HEIGHT/2+world2.offset_y), -fov+world2.offset_z);
+	//world->camera = Vec(world->offset_x, world->offset_y, world->offset_z);
 	
-	//world_ptr->lights[2].ct = world_ptr->camera;
-	
-	
-	//Vec pix = screenPixRotate(x, y, world2.lacet, Vec(0, 1, 0), camera, allegro);
-	// Vec(x+world2.offset_x+world2.tangage, y+world2.offset_y+world2.lacet+width_offset, 0+world2.offset_z+world2.roulis)
-	
-	if(!high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) / renderTimeAverage.size() > 100){ // If FPS are under 1000/_100_ = 10
-		high_fps_mode = true;
+	if(!world->high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) / renderTimeAverage.size() > 100){ // If FPS are under 1000/_100_ = 10
+		world->high_fps_mode = true;
 		allegro->getGUI()->displayMessage("High performance mode activated", 3000);
 		allegro->getGUI()->newBtn(string("Disable HPerf"), allegro->getDisplayWidth()/2, allegro->getDisplayHeight()-35, 30, 100, &disableHPerf);
 	}
@@ -230,8 +243,8 @@ void redraw(Allegro* allegro, float FPS)
 	#pragma omp parallel for collapse(2)
 	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
 		for(int y=0;y<allegro->getDisplayWidth();y++){
-			Vec pix = Vec(x+world2.offset_x, y+world2.offset_y+world2.width_offset, 0+world2.offset_z);
-			screen[x][y] = raytrace(world_ptr, world_ptr->camera, pix);
+			Vec pix = screenPixRotate(x, y, world->rotation, allegro);  
+			screen[x][y] = raytrace(world, world->camera, pix);
 		}
 	}
 	
@@ -246,7 +259,7 @@ void redraw(Allegro* allegro, float FPS)
 	allegro->unlockScreen();
 	
 	
-	world_ptr->drawTextTag(droneTagIndex);
+	world->drawTextTag(droneTagIndex);
 	
 	stringstream fps_disp;
 	
@@ -263,7 +276,7 @@ void redraw(Allegro* allegro, float FPS)
 	allegro->draw_text(5, 30, tmpStr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
 	
-	PhysicObject* drone = world_ptr->getPhysicObject(physObjectIndex);
+	PhysicObject* drone = world->getPhysicObject(physObjectIndex);
 	
 	stringstream alt;
 	alt << round(drone->pos._y*100)/100 << " m";
@@ -281,18 +294,25 @@ void redraw(Allegro* allegro, float FPS)
 	
 	allegro->draw_text(5, 90, corr.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
-	world_ptr->width_offset = (WIDTH - allegro->getDisplayWidth())/2; // Required when resizing the display in order to move the camera accordingly
+	world->width_offset = (WIDTH - allegro->getDisplayWidth())/2; // Required when resizing the display in order to move the camera accordingly
 }
 
 void mouseMove(Allegro* allegro, void* context, uint16_t event, int x, int y){
 	World* world = (World*)context;
-	if(event & Allegro::MOUSE_WHEELED)
-		world->offset_x += 3*x;
-	else if(event & Allegro::MOUSE_MOVED_DELTA){
-		//world->lacet += y/2;
-		world->offset_z -= y/2;
-		world->offset_y += x/2;
+	
+	float deltaUp = 0.;
+	
+	if(event & Allegro::MOUSE_WHEELED) {
+		deltaUp = 3*x;
+	} else if(event & Allegro::MOUSE_MOVED_DELTA){
+		world->tangage += y/8;
+		world->lacet += x/8;
+		
+		world->rotation = getRotationMatrix(allegro);
 	}
+	
+	Vec direction_haut = Matrice(Matrice::Y, PI/2)*world->direction;
+	world->camera += direction_haut.normalize()*deltaUp;
 }
 
 void mouseClick(Allegro* allegro, void* context, uint16_t event, int x, int y){
@@ -304,7 +324,12 @@ void mouseClick(Allegro* allegro, void* context, uint16_t event, int x, int y){
 
 void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 	World* world = (World*)context;
+	
+	float deltaForward = 0.;
+	float deltaRight = 0.;
+	
 	if(event == Allegro::KEY_DOWN){
+		
 		switch(keycode){
 			case ALLEGRO_KEY_ESCAPE:
 				allegro->setStickCursorToCenter(false);
@@ -316,28 +341,6 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 					allegro->toggleFullscreen(true);
 				}
 				break;
-
-			if(allegro->isKeyDown(ALLEGRO_KEY_LSHIFT)){
-				case ALLEGRO_KEY_RIGHT:
-				{
-					if(selector <= 2){
-						selector += 1;
-					} else {
-						selector = 0;
-					}
-				}
-				
-				case ALLEGRO_KEY_LEFT:
-				{
-					if(selector > 0){
-						selector -= 1;
-					} else {
-						selector = 2;
-					}
-				}
-			} else {
-				selector = -1;
-			}
 
 			case ALLEGRO_KEY_D:
 				angleInc(&(world->lacet), 1);
@@ -351,58 +354,42 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			case ALLEGRO_KEY_Z:
 				angleInc(&(world->roulis), -1);
 				break;
-			case ALLEGRO_KEY_PAD_ASTERISK:
-				vRef *= 2;
-				break;
-			case ALLEGRO_KEY_PAD_SLASH:
-				vRef /= 2;
-				break;
-			case ALLEGRO_KEY_PAD_PLUS:
-			{
-				if(abs(vRef) > 1){
-					vRef += 1;
-				} else {
-					vRef += 1.0/24;
-				}
-				break;
-			}
-			case ALLEGRO_KEY_PAD_MINUS:
-			{
-				if(abs(vRef) > 1){
-					vRef -= 1;
-				} else {
-					vRef -= 1.0/24;
-				}
-				break;
-			}
 			case ALLEGRO_KEY_C:
 			{
 				PhysicObject* drone = world->getPhysicObject(physObjectIndex);
 				drone->Kc1-=10;
-			}
 				break;
+			}
+			
 			case ALLEGRO_KEY_V:
 			{
 				PhysicObject* drone = world->getPhysicObject(physObjectIndex);
 				drone->Kc1+=10;
-			}
+				
 				break;
+			}
 				
 		}
-	} else {
-		//if(selector == -1){
-			if(allegro->isKeyDown(ALLEGRO_KEY_RIGHT))
-				world->offset_y += 5;
-			
-			if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
-				world->offset_y -= 5;
-		//}
+	
+		world->rotation = getRotationMatrix(allegro);
+		
+	} else if(event == Allegro::KEY_REPEAT) {
+		
+		if(allegro->isKeyDown(ALLEGRO_KEY_RIGHT))
+			deltaRight = 5;
+			//world->offset_y += 5;
+		
+		if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
+			deltaRight = -5;
+			//world->offset_y -= 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_UP))
-			world->offset_z += 5;
+			deltaForward = 5;
+			//world->offset_z += 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_DOWN))
-			world->offset_z -= 5;
+			deltaForward = -5;
+			//world->offset_z -= 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_D))
 			angleInc(&(world->lacet), 1);
@@ -421,10 +408,14 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 			
 		if(allegro->isKeyDown(ALLEGRO_KEY_W))
 			tTestProfondeur -= 1;
+			
+		world->rotation = getRotationMatrix(allegro);
 	}
-	world->camera = Vec((double)(WIDTH/2+world->offset_x), (double)(HEIGHT/2+world->offset_y), -fov+world->offset_z);
+	
+	Vec direction_droite = Matrice(Matrice::X, PI/2)*world->direction;
+	world->camera += world->direction.normalize()*deltaForward + direction_droite.normalize()*deltaRight;
+	
 }
-
 
 int main(int argc, char **argv)
 {
@@ -435,8 +426,8 @@ int main(int argc, char **argv)
     allegro->init();
     allegro->createWindow(60, HEIGHT, WIDTH);
 	
-	allegro->setStickCursorToCenter(true);
-	allegro->setCursorVisibility(false);
+	//allegro->setStickCursorToCenter(true);
+	//allegro->setCursorVisibility(false);
 	
 	World world;
 	world.allegro = allegro;
@@ -447,8 +438,8 @@ int main(int argc, char **argv)
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
 	
-	
-	world.camera = Vec((double)(WIDTH/2), (double)(HEIGHT/2), -fov);
+	world.camera = physToRt(Vec(0, 5, 0));
+	//world.camera = Vec((double)(WIDTH/2), (double)(HEIGHT/2), 0);
 	
 	//world.addLight(Sphere(world.camera - Vec(0, 0, -15), 5, Color(255, 255, 255)*0.2));
 	
@@ -468,7 +459,7 @@ int main(int argc, char **argv)
 	stringstream filename;
 	filename << "drone-" << year << "-" << month << "-" << day << "-" << hour << "." << min << "." << sec << ".csv";
 	
-	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 1.5, 1, 0.01);
+	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 5, 1, 0.01);
 	drone.recordData(filename.str());
 	
 	physObjectIndex = world.addPhysicalObject(&drone);
@@ -493,9 +484,9 @@ int main(int argc, char **argv)
 	Sphere sol(physToRt(Vec(0, -6000*1000, 0)), 6000*1000, Color(58, 157, 35));
 	world.addObject(sol);
 	
-	world.offset_y = -world.camera._y;
-	world.offset_x = -10 - world.camera._x;
-	world.offset_z = -80 - world.camera._z;
+//	world.offset_y = -world.camera._y;
+//	world.offset_x = -10 - world.camera._x;
+//	world.offset_z = -80 - world.camera._z;
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);

@@ -1,5 +1,18 @@
+#pragma once
+
 #ifndef MATH_HPP_
-#define MATH_HPP_
+#define MATH_HPP_ 1
+
+
+#include "includes.h"
+//#include <vector>
+//#include <iostream>
+//#include <sstream>
+//#include <armadillo>
+
+//int between(double x, int min, int max){
+//	
+//}
 
 class Vec {
 public:
@@ -118,21 +131,88 @@ public:
 	
 };
 
-void pVec(Vec v){
-	std::cout << (std::string)v << std::endl;
-}
+void pVec(Vec v);
 
-double pow(const Vec& v, int i){
-	Vec v2 = v;
-	if(i==2){
-		return v2.dot(v2);
-	} else {
-		return 0;
+double pow(const Vec& v, int i);
+
+using namespace arma;
+class Matrice{
+	mat matrix;
+	
+	void setColumn(double j, double x, double y, double z){
+		matrix(0, j) = x;
+		matrix(1, j) = y;
+		matrix(2, j) = z;
 	}
-}
+	
+public:
+	const static uint16_t X = 0;
+	const static uint16_t Y = 1;
+	const static uint16_t Z = 2;
+	
+	Matrice(unsigned n = 3){
+		matrix = mat(n, n, fill::eye);
+	}
+	
+	Matrice(mat mtx){
+		matrix = mtx;
+	}
+	
+	Matrice(Vec v){
+		matrix = vec(3);
+		matrix(0) = v._x;
+		matrix(1) = v._y;
+		matrix(2) = v._z;
+	}
+	
+	Matrice(uint16_t axis, double angle){
+		matrix = mat(3, 3, fill::zeros);
+		switch(axis){
+			case 0:
+				setColumn(0, 1, 0, 0);
+				setColumn(1, 0, cos(angle), sin(angle));
+				setColumn(2, 0, -sin(angle), cos(angle));
+				break;
+			case 1:
+				setColumn(0., cos(angle), 0, -sin(angle));
+				setColumn(1, 0, 1, 0);
+				setColumn(2, sin(angle), 0, cos(angle));
+				break;
+			case 2:
+				setColumn(0, cos(angle), sin(angle), 0);
+				setColumn(1, -sin(angle), cos(angle), 0);
+				setColumn(2, 0, 0, 1);
+		}
+	}
+	
+	Vec toVec(){
+		if(matrix.is_vec())
+			return Vec(matrix(0), matrix(1), matrix(2));
+		else
+			return Vec(0, 0, 0);
+	}
+	
+	Matrice operator*(Matrice& m2){
+		return Matrice(matrix*m2.matrix);
+	}
+	
+	Matrice operator*(Vec v){
+		return Matrice(matrix*Matrice(v).matrix);
+	}
+	
+	Matrice operator+(Matrice m2){
+		return Matrice(matrix+m2.matrix);
+	}
+	
+	Matrice operator*(double k){
+		return Matrice(matrix*k);
+	}
+	
+	operator Vec(){
+		return this->toVec();
+	}
+};
 
-inline int clamp(double x, double min, double max){
-	return floor((x>max) ? max : ((x<min) ? min : x));
-}
+inline int clamp(double x, double min, double max);
 
 #endif

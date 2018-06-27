@@ -1,17 +1,21 @@
+#pragma once 
+
 #ifndef PHYS_HPP_
-#define PHYS_HPP_
+#define PHYS_HPP_ 1
 
-#include <iostream>
-#include <chrono>
-#include <cmath>
-#include <sstream>
-#include <cstdio>
-#include <string>
-#include <fstream>
-#include <thread>
-#include <algorithm>
-
-#include "math.hpp"
+#include "includes.h"
+//#include <iostream>
+//#include <chrono>
+//#include <cmath>
+//#include <sstream>
+//#include <cstdio>
+//#include <string>
+//#include <fstream>
+//#include <thread>
+//#include <algorithm>
+//
+//#include "math.hpp"
+//#include "allegro/allegro.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -23,38 +27,21 @@ using namespace std::chrono;
  * @param microsecs Number of microseconds of sleeping.
  * @param threadSleep Uses the OS to pause the thread for the specified time. Less precise.
  */
-void waitFor(int microsecs, bool threadSleep=false){
-	using namespace std::chrono;
-	if(threadSleep){
-		this_thread::sleep_for(microseconds(microsecs));
-	} else {
-		auto t1 = high_resolution_clock::now();
-		auto t2 = high_resolution_clock::now();
-		duration<double, std::micro> dt = t2-t1;
-		while(dt.count() < microsecs){
-			t2 = high_resolution_clock::now();
-			dt = t2-t1;
-		}
-	}
-}
+void waitFor(int microsecs, bool threadSleep=false);
 
 /**
  * @brief Converts a Raytracing vector to a Physics vector
  * @param v Vector to convert
  * @return Returns converted vector
  */
-Vec rtToPhys(Vec v){
-	return Vec(v._y, -v._x, v._z);
-}
+Vec rtToPhys(Vec v);
 
 /**
  * @brief Converts a Physics vector to a Raytracing vector
  * @param v Vector to convert
  * @return Returns converted vector
  */
-Vec physToRt(Vec v){
-	return Vec(-v._y, v._x, v._z);
-}
+Vec physToRt(Vec v);
 
 /**
  * @class PhysicObject
@@ -81,7 +68,7 @@ public:
 	
 	Vec positionConsigne;
 	
-	double Kc1 = 1000;
+	double Kc1 = 600;
 	double Kc2 = 1;
 	double Kcapm = 1;
 	double KcapM = 10;
@@ -113,12 +100,14 @@ public:
 		courbes << "t;y;v_y;a_y;rpm" << endl;
 		if(courbes.good())
 			return true;
+			
+		return false;
 	}
 	
 	void saveData(){
 		time_point<high_resolution_clock> t = high_resolution_clock::now();
 		duration<double, std::ratio<1> > dtSave = t-tSave;
-		time_point<high_resolution_clock> tSave = high_resolution_clock::now();
+		tSave = high_resolution_clock::now();
 		
 		duration<double, std::ratio<1> > dt = t-t0;
 		

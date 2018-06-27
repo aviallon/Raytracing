@@ -8,9 +8,14 @@
   <Description/>
   <Dependencies/>
   <VirtualDirectory Name="src">
+    <File Name="math.cpp"/>
+    <File Name="phys.cpp"/>
+    <File Name="includes.h"/>
+    <File Name="raytracer.cpp"/>
     <File Name="math.hpp"/>
     <File Name="phys.hpp"/>
     <VirtualDirectory Name="allegro">
+      <File Name="raytracer.hpp"/>
       <File Name="allegro/mouse.h"/>
       <File Name="allegro/mouse.cpp"/>
       <File Name="allegro/gui.h"/>
@@ -20,7 +25,6 @@
       <File Name="allegro/allegro.cpp"/>
     </VirtualDirectory>
     <File Name="main.cpp"/>
-    <File Name="raytracer.h"/>
   </VirtualDirectory>
   <Settings Type="Executable">
     <GlobalSettings>
@@ -29,6 +33,7 @@
       </Compiler>
       <Linker Options="-fopenmp">
         <LibraryPath Value="."/>
+        <Library Value="armadillo"/>
       </Linker>
       <ResourceCompiler Options=""/>
     </GlobalSettings>
@@ -83,11 +88,11 @@
       </Completion>
     </Configuration>
     <Configuration Name="Release" CompilerType="GCC" DebuggerType="GNU gdb debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
-      <Compiler Options="-O9;-Wall;-std=c++11" C_Options="-O9;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+      <Compiler Options="-O3;-Wall;-std=c++11" C_Options="-O3;-Wall" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
         <IncludePath Value="."/>
         <Preprocessor Value="NDEBUG"/>
       </Compiler>
-      <Linker Options="-Wl,--format=binary -Wl,allegro/arial.ttf -Wl,--format=default" Required="yes">
+      <Linker Options="-Wl,--format=binary -Wl,allegro/fonts/Arimo-Regular.ttf -Wl,--format=default" Required="yes">
         <Library Value="pthread"/>
         <Library Value="allegro"/>
         <Library Value="allegro_image"/>
