@@ -10,9 +10,8 @@
 //#include <sstream>
 //#include <armadillo>
 
-//int between(double x, int min, int max){
-//	
-//}
+#define START_BITMASK_SWITCH(x) \
+    for (uint64_t bit = 1; x >= bit; bit *= 2) if (x & bit) switch (bit)
 
 class Vec {
 public:
@@ -214,5 +213,13 @@ public:
 };
 
 inline int clamp(double x, double min, double max);
+
+// Pre-computed sin values - 8 bit resolution
+float st_sin(float x);
+
+float st_cos(float x);
+
+// Pre-computed tan values - 9 bit resolution (512)
+float st_tan(float x);
 
 #endif

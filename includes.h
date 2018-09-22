@@ -25,6 +25,7 @@
 #include <boost/date_time/gregorian/gregorian_types.hpp>
 #include <future>
 #include <armadillo>
+#include <png++/png.hpp>
 
 #define MAX(a, b) (((a > b))?(a):(b))
 #define MIN(a, b) (((a < b))?(a):(b))

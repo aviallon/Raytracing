@@ -1,5 +1,8 @@
 #include "includes.h"
 
+int PhysicObject::id_iterator = 0;
+vector<PhysicObject*> PhysicObject::physWorld;
+
 void waitFor(int microsecs, bool threadSleep){
 	using namespace std::chrono;
 	if(threadSleep){

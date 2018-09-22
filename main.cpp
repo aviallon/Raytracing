@@ -122,6 +122,7 @@ int droneTagIndex = 0;
 void animate(Allegro* allegro, float FPS){
 	World* world_ptr = (World*)allegro->getContext();
 	
+	//for(int i = 0; i<world_ptr->)
 	Sphere* physObjectSphere = ((Sphere*)world_ptr->getObject(physObjectSphereIndex));
 	
 	PhysicObject* physObject = world_ptr->getPhysicObject(physObjectIndex);
@@ -152,23 +153,20 @@ void animate(Allegro* allegro, float FPS){
 	
 }
 
-Vec screenPixRotate(int x, int y, Matrice& rotation, Allegro* allegro){
+Vec screenPixRotate(float x, float y, Matrice& rotation, Allegro* allegro){
 	
 	World* world = (World*)allegro->getContext();
 	
-	Vec pos_center(allegro->getDisplayWidth()/2, fov, allegro->getDisplayHeight()/2);
-	Matrice pos_center_mtx(pos_center);
-	pos_center = (rotation*pos_center_mtx).toVec();
-	
-	Vec pos(x-allegro->getDisplayWidth()/2, 0, y-allegro->getDisplayHeight()/2);
+	// Only that has to be calculated each time
+	Vec pos(x-float(allegro->getDisplayWidth())/2.0f, 0, y-float(allegro->getDisplayHeight())/2.0f);
 	Matrice pos_mtx(pos);
 	
 	Vec translation = (rotation*pos_mtx).toVec();
 	
-	return pos_center + translation + world->camera;
+	return world->direction + translation + world->camera;
 }
 
-Matrice getRotationMatrix(Allegro* allegro){
+Matrice calculatePixVecs(Allegro* allegro){
 	
 	World* world = (World*)allegro->getContext();
 	
@@ -184,6 +182,15 @@ Matrice getRotationMatrix(Allegro* allegro){
 	
 	Vec pos_center = rotation*Vec(allegro->getDisplayWidth()/2, fov, allegro->getDisplayHeight()/2);
 	world->direction = pos_center;
+	
+	/*vector<vector<Vec>> screen(allegro->getDisplayHeight(), vector<Vec>(allegro->getDisplayWidth(), Vec(0,0,0)));
+	#pragma omp parallel for collapse(2)
+	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
+		for(int y=0;y<allegro->getDisplayWidth();y++){
+			screen[x][y] = screenPixRotate(x, y, rotation, allegro);
+		}
+	}
+	world->screen = screen;*/ // Pas rentable en terme de FPS gagnés vs latence lors du changement d'orientation.
 	
 	return rotation;
 }
@@ -221,6 +228,15 @@ string getDuration(double duration){
 	return dtstream.str();
 }
 
+void enableHperf(Allegro* allegro, World* world){
+	world->high_fps_mode = true;
+	allegro->getGUI()->displayMessage("High performance mode activated", 3000);
+	allegro->getGUI()->newBtn(string("Disable HPerf"), allegro->getDisplayWidth()/2, allegro->getDisplayHeight()-35, 30, 100, &disableHPerf);
+}
+
+float min_fps = INFINITY;
+float max_fps = 0;
+
 void redraw(Allegro* allegro, float FPS)
 {
 	const int t = getms();
@@ -231,20 +247,46 @@ void redraw(Allegro* allegro, float FPS)
 
 	//world->camera = Vec(world->offset_x, world->offset_y, world->offset_z);
 	
-	if(!world->high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) / renderTimeAverage.size() > 100){ // If FPS are under 1000/_100_ = 10
-		world->high_fps_mode = true;
-		allegro->getGUI()->displayMessage("High performance mode activated", 3000);
-		allegro->getGUI()->newBtn(string("Disable HPerf"), allegro->getDisplayWidth()/2, allegro->getDisplayHeight()-35, 30, 100, &disableHPerf);
+	if(!world->disableAutoHighFPS && !world->high_fps_mode && accumulate(renderTimeAverage.begin(), renderTimeAverage.end(), 0.0) > 100){ // If FPS are under 1000/_100_ = 10
+		enableHperf(allegro, world);
 	}
 	
-	
-	vector<vector<Color> > screen(allegro->getDisplayHeight(), vector<Color>(allegro->getDisplayWidth()));
-	
-	#pragma omp parallel for collapse(2)
-	for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
-		for(int y=0;y<allegro->getDisplayWidth();y++){
-			Vec pix = screenPixRotate(x, y, world->rotation, allegro);  
-			screen[x][y] = raytrace(world, world->camera, pix);
+	vector<vector<Color> > screen(allegro->getDisplayHeight(), vector<Color>(allegro->getDisplayWidth()));;
+	const int AAsamples = 2;
+	if(world->enableAntialiasing){
+		
+		#pragma omp parallel for collapse(2)
+		for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
+			for(int y=0;y<allegro->getDisplayWidth();y++){
+				//Vec pix = screenPixRotate(x, y, world->rotation, allegro);  
+				Vec pix;
+				Color pix_c;
+				int r = 0;
+				int g = 0;
+				int b = 0;
+				int n = 0;
+				for(float i = -AAsamples/2; i<=AAsamples/2; i++){
+					for(float j = -AAsamples/2; j<=AAsamples/2; j++){
+						n++;
+						pix = screenPixRotate(x+i, y+j, world->rotation, allegro);
+						pix_c = raytrace(world, world->camera, pix);
+						r += pix_c._r;
+						g += pix_c._g;
+						b += pix_c._b;
+					}
+				}
+				screen[x][y] = Color(r/n, g/n, b/n);
+			}
+		}
+	} else {
+		//screen = vector<vector<Color> >(allegro->getDisplayHeight(), vector<Color>(allegro->getDisplayWidth()));
+		
+		#pragma omp parallel for collapse(2)
+		for(int x=0;x<allegro->getDisplayHeight();x++){ // oui, il y a une inversion des axes...
+			for(int y=0;y<allegro->getDisplayWidth();y++){
+				//Vec pix = screenPixRotate(x, y, world->rotation, allegro);  
+				screen[x][y] = raytrace(world, world->camera, screenPixRotate(x, y, world->rotation, allegro));
+			}
 		}
 	}
 	
@@ -266,7 +308,12 @@ void redraw(Allegro* allegro, float FPS)
 	renderTimeAverage.push_back((getms() - t));
 	renderTimeAverage.erase(renderTimeAverage.begin());
 	
-	fps_disp << fps(renderTimeAverage) << " FPS\0";
+	const float c_fps = fps(renderTimeAverage);
+	if(c_fps > max_fps)
+		max_fps = c_fps;
+	if(c_fps < min_fps)
+		min_fps = c_fps;
+	fps_disp << c_fps << " FPS - (" << min_fps << " ~ " << max_fps << ")";
 	
 	allegro->draw_text(5, 10, fps_disp.str(), allegro->rgb(255, 255, 255), ALLEGRO_ALIGN_LEFT);
 	
@@ -300,19 +347,18 @@ void redraw(Allegro* allegro, float FPS)
 void mouseMove(Allegro* allegro, void* context, uint16_t event, int x, int y){
 	World* world = (World*)context;
 	
-	float deltaUp = 0.;
-	
 	if(event & Allegro::MOUSE_WHEELED) {
-		deltaUp = 3*x;
+		float deltaUp = 3*x;
+		Vec direction_haut = Matrice(Matrice::Y, PI/2)*world->direction;
+		world->camera += direction_haut.normalize()*deltaUp;
 	} else if(event & Allegro::MOUSE_MOVED_DELTA){
 		world->tangage += y/8;
 		world->lacet += x/8;
 		
-		world->rotation = getRotationMatrix(allegro);
+		//world->screenRotatedResized = true;
+		world->rotation = calculatePixVecs(allegro);
 	}
 	
-	Vec direction_haut = Matrice(Matrice::Y, PI/2)*world->direction;
-	world->camera += direction_haut.normalize()*deltaUp;
 }
 
 void mouseClick(Allegro* allegro, void* context, uint16_t event, int x, int y){
@@ -341,19 +387,6 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 					allegro->toggleFullscreen(true);
 				}
 				break;
-
-			case ALLEGRO_KEY_D:
-				angleInc(&(world->lacet), 1);
-				break;
-			case ALLEGRO_KEY_Q:
-				angleInc(&(world->lacet), -1);
-				break;
-			case ALLEGRO_KEY_S:
-				angleInc(&(world->roulis), 1);
-				break;
-			case ALLEGRO_KEY_Z:
-				angleInc(&(world->roulis), -1);
-				break;
 			case ALLEGRO_KEY_C:
 			{
 				PhysicObject* drone = world->getPhysicObject(physObjectIndex);
@@ -368,51 +401,81 @@ void move(Allegro* allegro, void* context, uint16_t event, uint8_t keycode){
 				
 				break;
 			}
-				
+			
+			case ALLEGRO_KEY_H:
+			{
+				if(allegro->isKeyDown(ALLEGRO_KEY_LSHIFT)){
+					world->high_fps_mode = !(world->high_fps_mode);
+				} else if(allegro->isKeyDown(ALLEGRO_KEY_LCTRL)){
+					world->disableAutoHighFPS = !(world->disableAutoHighFPS);
+					allegro->getGUI()->displayMessage("Toggled Auto High Perf mode", 3000);
+				}
+				break;
+			}
+			
+			case ALLEGRO_KEY_A:
+			{
+				if(allegro->isKeyDown(ALLEGRO_KEY_LCTRL)){
+					world->enableAntialiasing = !(world->enableAntialiasing);
+					allegro->getGUI()->displayMessage("Toggled AntiAliasing", 3000);
+				}
+				break;
+			}
+			
 		}
 	
-		world->rotation = getRotationMatrix(allegro);
+		//world->rotation = getRotationMatrix(allegro);
 		
 	} else if(event == Allegro::KEY_REPEAT) {
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_RIGHT))
-			deltaRight = 5;
+			deltaRight = 1;
 			//world->offset_y += 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_LEFT))
-			deltaRight = -5;
+			deltaRight = -1;
 			//world->offset_y -= 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_UP))
-			deltaForward = 5;
+			deltaForward = 1;
 			//world->offset_z += 5;
 		
 		if(allegro->isKeyDown(ALLEGRO_KEY_DOWN))
-			deltaForward = -5;
+			deltaForward = -1;
 			//world->offset_z -= 5;
 		
-		if(allegro->isKeyDown(ALLEGRO_KEY_D))
+		if(allegro->isKeyDown(ALLEGRO_KEY_D)){
 			angleInc(&(world->lacet), 1);
+			world->rotation = calculatePixVecs(allegro);
+		}
 		
-		if(allegro->isKeyDown(ALLEGRO_KEY_Q))
+		if(allegro->isKeyDown(ALLEGRO_KEY_Q)){
 			angleInc(&(world->lacet), -1);
+			world->rotation = calculatePixVecs(allegro);
+		}
 			
-		if(allegro->isKeyDown(ALLEGRO_KEY_S))
+		if(allegro->isKeyDown(ALLEGRO_KEY_S)){
 			angleInc(&(world->roulis), 1);
+			world->rotation = calculatePixVecs(allegro);
+		}
 			
-		if(allegro->isKeyDown(ALLEGRO_KEY_Z))
+		if(allegro->isKeyDown(ALLEGRO_KEY_Z)){
 			angleInc(&(world->roulis), -1);
+			world->rotation = calculatePixVecs(allegro);
+		}
 			
-		if(allegro->isKeyDown(ALLEGRO_KEY_X))
+		if(allegro->isKeyDown(ALLEGRO_KEY_X)){
 			tTestProfondeur += 1;
+		}
 			
-		if(allegro->isKeyDown(ALLEGRO_KEY_W))
+		if(allegro->isKeyDown(ALLEGRO_KEY_W)){
 			tTestProfondeur -= 1;
-			
-		world->rotation = getRotationMatrix(allegro);
+		}
+		
 	}
 	
-	Vec direction_droite = Matrice(Matrice::X, PI/2)*world->direction;
+	Vec direction_droite = (world->direction ^ physToRt(Vec(0, 1, 0)));
+	//Vec direction_droite = Matrice(Matrice::X, PI/2)*world->direction;
 	world->camera += world->direction.normalize()*deltaForward + direction_droite.normalize()*deltaRight;
 	
 }
@@ -433,7 +496,10 @@ int main(int argc, char **argv)
 	world.allegro = allegro;
 	world.width_offset = (WIDTH - allegro->getDisplayWidth())/2;
 	
-	world.addLight(Sphere(physToRt(Vec(0, 150, 0)), 10, Color(255, 255, 170)));
+	const double d_soleil = 149.6*10e7;
+	Sphere soleil(physToRt(Vec(cos(PI/6)*d_soleil, sin(PI/6)*d_soleil, 0.)), 695508*1000, Color(255, 255, 170)); // The sun. In **real** size O_o
+	
+	world.addLight(soleil);
 	
 	//world.addLight(Sphere(Vec(WIDTH/2, 0, 0), 10, Color(0, 0, 255)));
 	// Moving light
@@ -459,20 +525,26 @@ int main(int argc, char **argv)
 	stringstream filename;
 	filename << "drone-" << year << "-" << month << "-" << day << "-" << hour << "." << min << "." << sec << ".csv";
 	
-	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), 5, 1, 0.01);
-	drone.recordData(filename.str());
+	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), NormalReaction | Gravity,5, 1, 0.01, 10);
+	//drone.recordData(filename.str());
 	
 	physObjectIndex = world.addPhysicalObject(&drone);
 	
-	Sphere droneSphere(drone.getPos(), 0.5, Color(255, 0, 0), 2);
+	Sphere droneSphere(drone.getPos(), 0.5, Color(255, 0, 0), 2, 0);
 	
-	droneSphere.opacity = 0.3;
+	//droneSphere.texture = UVTexture("../earth.png");
 	
 	physObjectSphereIndex = world.addObject(droneSphere);
 	
 	Text3D droneTag("Drone", drone.getPos()+Vec(1, 0, 0));
 	
 	droneTagIndex = world.addTextTag(droneTag);
+	
+	for(int i=0; i<8; i++){
+		Sphere st = Sphere(physToRt(Vec(0, 15, 0))+drone.getPos(), 1, Color(250, 250, 250), 1.2, 0);
+		rotateSphere(&st, st.ct, Vec(1, 0, 0), i*360/8, 10, 0);
+		world.addObject(st);
+	}
 	
 	//Vec a = Vec(allegro->getDisplayHeight(),0,0);
 	
@@ -481,12 +553,19 @@ int main(int argc, char **argv)
 	//world.addObject(p);
 	
 	// The Earth
-	Sphere sol(physToRt(Vec(0, -6000*1000, 0)), 6000*1000, Color(58, 157, 35));
+	Sphere sol(physToRt(Vec(0, -6371*1000, 0)), 6371*1000, /*Color(58, 157, 35)*/Color(255, 255, 255)); // 6000 km wide ball :D easier than making a plane, and actually more accurate :D
+	//sol.texture = UVTexture("../earth.png");
 	world.addObject(sol);
+	
+	PhysicObject solPhys(sol.ct, Vec(), None, 5.972e24, 0, 0, sol.r, true);
+	
+	world.addPhysicalObject(&solPhys);
 	
 //	world.offset_y = -world.camera._y;
 //	world.offset_x = -10 - world.camera._x;
 //	world.offset_z = -80 - world.camera._z;
+
+	world.rotation = calculatePixVecs(allegro);
 	
 	allegro->bindKeyDown(move);
 	allegro->bindMouseMove(mouseMove);
