@@ -132,8 +132,6 @@ public:
 
 void pVec(Vec v);
 
-double pow(const Vec& v, int i);
-
 using namespace arma;
 class Matrice{
 	mat matrix;

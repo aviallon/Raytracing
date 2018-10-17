@@ -138,7 +138,8 @@ public:
 	
 	const float getRefractionIndice(int i);
 	
-	const unsigned int size(bool withLights = true);
+	const unsigned int size();
+	const unsigned int size_no_lights();
 	
 	Vec getLightCt(int i);
 	

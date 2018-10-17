@@ -56,17 +56,23 @@ Vec Plan::getNormale(Vec pI){
 pair<Vec, Vec> Plan::intersect(Vec o, Vec d, Vec camera){
 	pair<Vec, Vec> intersections(Vec(true), Vec(true));
 	
-	Vec d_o = o-d;
+	Vec o_d = d-o;
 	
+	if((o_d|n) < 0)
+		return intersections;
+	Vec o_a = a-o;
+	
+	intersections.first = o_d * o_a.dot(n)/o_d.dot(n) + o;
 	return intersections;
 	
-	if((d_o|n) < 0)
-		return intersections;
-	
-	Vec b_a = (a-b);
-	Vec c_a = (a-c);
-	
-	Vec h = a + b_a*(d_o|b_a) + c_a*(d_o|c_a);
+//	
+//	if((d_o|n) < 0)
+//		return intersections;
+//	
+//	Vec b_a = (a-b);
+//	Vec c_a = (a-c);
+//	
+//	Vec h = a + b_a*(d_o|b_a) + c_a*(d_o|c_a);
 	
 //		Vec a_h = (a-h).normalize();
 //		Vec b_h = (b-h).normalize();
@@ -74,7 +80,7 @@ pair<Vec, Vec> Plan::intersect(Vec o, Vec d, Vec camera){
 	
 	//float angle = acos(a_h|c_h) + acos(b_h|c_h) + acos(c_h|a_h);
 	
-	intersections.first = h*-1;
+	//intersections.first = h*-1;
 	
 	return intersections;
 }
@@ -126,11 +132,11 @@ pair<Vec, Vec> Sphere::intersect(Vec o, Vec d, bool getAll){
 	double c=0;
 	try{
 		
-		a = pow(d_o,2);
+		a = d_o.dot(d_o); // d_o^2
 		a = (a==0)?1e-8:a;
 		
 		b = (d_o).dot(o_ct)*2;
-		c = pow(o_ct,2) - r*r;
+		c = o_ct.dot(o_ct) - r*r;
 		
 		det = b*b - 4*a*c;
 	} catch (...){
@@ -301,11 +307,12 @@ const float World::getRefractionIndice(int i){
 	}
 }
 
-const unsigned int World::size(bool withLights){
-	if(withLights)
-		return indices.size() + lights.size();
-	else
-		return indices.size();
+const unsigned int World::size(){
+	return indices.size() + lights.size();
+}
+
+const unsigned int World::size_no_lights(){
+	return indices.size();
 }
 
 Vec World::getLightCt(int i){
@@ -385,7 +392,7 @@ bool shadowRay(Vec pI, Vec L, World& world, unsigned lampe, int i){
 
 	Sphere light = world.lights[lampe];
 	for(unsigned obstacle = 0; obstacle < world.size(); obstacle++){
-		if((int)obstacle == i || obstacle == lampe + world.size(false)){
+		if((int)obstacle == i || obstacle == lampe + world.size_no_lights()){
 			continue;
 		}
 		

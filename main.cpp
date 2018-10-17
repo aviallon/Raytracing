@@ -525,7 +525,7 @@ int main(int argc, char **argv)
 	stringstream filename;
 	filename << "drone-" << year << "-" << month << "-" << day << "-" << hour << "." << min << "." << sec << ".csv";
 	
-	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), NormalReaction | Gravity,5, 1, 0.01, 10);
+	PhysicObject drone(rtToPhys(Vec(0, 0, 10)), Vec(0, 0, 0), DroneThrust | NormalReaction | Gravity,5, 1, 0.01, 10);
 	//drone.recordData(filename.str());
 	
 	physObjectIndex = world.addPhysicalObject(&drone);
@@ -560,6 +560,12 @@ int main(int argc, char **argv)
 	PhysicObject solPhys(sol.ct, Vec(), None, 5.972e24, 0, 0, sol.r, true);
 	
 	world.addPhysicalObject(&solPhys);
+	
+	Sphere test(Vec(0, 0, 0), 10, Color(255, 255, 255), 1, 1);
+	world.addObject(test);
+	//Plan test(physToRt(Vec(0, 1000, 0)), physToRt(Vec(0, 0, 1)), physToRt(Vec(1, 0, 0)), Color(150, 0, 0), true);
+	
+	//world.addObject(test);
 	
 //	world.offset_y = -world.camera._y;
 //	world.offset_x = -10 - world.camera._x;
