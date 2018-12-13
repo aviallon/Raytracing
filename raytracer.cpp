@@ -38,15 +38,18 @@ Color UVTexture::getColorUV(float u, float v){
 	return Color(pix.red, pix.green, pix.blue);
 }
 
-Plan::Plan(Vec a, Vec b, Vec c, Color color, bool damier = false){
+Plan::Plan(Vec a, Vec b, Vec c, Color color, float rn = 1, float opacity = 1, bool damier = false){
 	this->a = a;
 	this->b = b;
 	this->c = c;
+	
+	this->rn = rn;
 	
 	this->n = ((b-a)^(c-a)).normalize();
 	this->damier = damier;
 	//std::cout << n.len() << ", " << this->n.len() << std::endl;
 	this->color = color;
+	this->opacity = opacity;
 }
 
 Vec Plan::getNormale(Vec pI){
@@ -56,13 +59,20 @@ Vec Plan::getNormale(Vec pI){
 pair<Vec, Vec> Plan::intersect(Vec o, Vec d, Vec camera){
 	pair<Vec, Vec> intersections(Vec(true), Vec(true));
 	
-	Vec o_d = d-o;
+	return intersections;
 	
-	if((o_d|n) < 0)
+	Vec _o = rtToPhys(o);
+	Vec _d = rtToPhys(d);
+	Vec _a = rtToPhys(a);
+	Vec _n = rtToPhys(n);
+	
+	Vec o_d = _d-_o;
+	
+	if((o_d|n) > 0)
 		return intersections;
-	Vec o_a = a-o;
+	Vec o_a = _a-_o;
 	
-	intersections.first = o_d * o_a.dot(n)/o_d.dot(n) + o;
+	intersections.first = physToRt(o_d * o_a.dot(_n)/o_d.dot(_n) + _o); // Validé
 	return intersections;
 	
 //	
@@ -294,16 +304,16 @@ const double World::getReflectiveness(int i){
 const double World::getOpacity(int i){
 	if(indices[i].obj_type == Obj::SPHERE && (unsigned)i < indices.size()){
 		return spheres[indices[i].i].opacity;
-	} else {
-		return 1;
+	}else if(indices[i].obj_type == Obj::PLAN && (unsigned)i < indices.size()) {
+		return plans[indices[i].i].opacity;
 	}
 }
 
 const float World::getRefractionIndice(int i){
 	if(indices.at(i).obj_type == Obj::SPHERE){
 		return spheres[indices[i].i].n;
-	} else {
-		return 1;
+	} else if(indices.at(i).obj_type == Obj::PLAN){
+		return plans[indices[i].i].rn;
 	}
 }
 

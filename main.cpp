@@ -45,6 +45,8 @@ std::vector<int> renderTimeAverage = std::vector<int>(5);
 #include "math.hpp"
 */
 
+std::vector<int> smallSpheres(8);
+
 //bool world->high_fps_mode;
 
 using namespace std;
@@ -119,6 +121,8 @@ int physObjectSphereIndex = 0;
 int physObjectIndex = 0;
 int droneTagIndex = 0;
 
+int angleSmallSpheres = 0;
+
 void animate(Allegro* allegro, float FPS){
 	World* world_ptr = (World*)allegro->getContext();
 	
@@ -129,7 +133,12 @@ void animate(Allegro* allegro, float FPS){
 	
 	Text3D* droneTag = world_ptr->getTextTag(droneTagIndex);
 	
-	
+	for(unsigned i=0; i<smallSpheres.size(); i++){
+		Sphere* sp = (Sphere*)world_ptr->getObject(i);
+		
+		rotateSphere(sp, physToRt(Vec(0, 10, 0)), physToRt(Vec(0, 1, 0)), i*360/smallSpheres.size() + float(angleSmallSpheres), 10, 0);
+	}
+	angleSmallSpheres = (angleSmallSpheres + 1)%360;
 	//Sphere soleil = world_ptr->lights[0];
 	
 	//Sphere* second_light = &(world_ptr->lights[1]);
@@ -540,10 +549,10 @@ int main(int argc, char **argv)
 	
 	droneTagIndex = world.addTextTag(droneTag);
 	
-	for(int i=0; i<8; i++){
+	for(int i=0; i<smallSpheres.size(); i++){
 		Sphere st = Sphere(physToRt(Vec(0, 15, 0))+drone.getPos(), 1, Color(250, 250, 250), 1.2, 0);
-		rotateSphere(&st, st.ct, Vec(1, 0, 0), i*360/8, 10, 0);
-		world.addObject(st);
+		rotateSphere(&st, st.ct, Vec(1, 0, 0), i*360/smallSpheres.size(), 10, 0);
+		smallSpheres[i] = world.addObject(st);
 	}
 	
 	//Vec a = Vec(allegro->getDisplayHeight(),0,0);
@@ -561,11 +570,12 @@ int main(int argc, char **argv)
 	
 	world.addPhysicalObject(&solPhys);
 	
-	Sphere test(Vec(0, 0, 0), 10, Color(255, 255, 255), 1, 1);
-	world.addObject(test);
-	//Plan test(physToRt(Vec(0, 1000, 0)), physToRt(Vec(0, 0, 1)), physToRt(Vec(1, 0, 0)), Color(150, 0, 0), true);
+	//Sphere testS(Vec(0, 0, 0), 2, Color(255, 255, 255), 1.1, 0.9);
+	//world.addObject(testS);
 	
-	//world.addObject(test);
+	Plan test(physToRt(Vec(0, 1000, 0)), physToRt(Vec(0, 0, 1)), physToRt(Vec(1, 0, 0)), Color(150, 0, 0), 1.8, 0.4, true);
+	
+	world.addObject(test);
 	
 //	world.offset_y = -world.camera._y;
 //	world.offset_x = -10 - world.camera._x;

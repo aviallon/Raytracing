@@ -34,7 +34,7 @@ public:
 
 class Plan{
 public:
-	Plan(Vec a, Vec b, Vec c, Color color, bool damier);
+	Plan(Vec a, Vec b, Vec c, Color color, float rn, float opacity, bool damier);
 	
 	Vec getNormale(Vec pI);
 	
@@ -48,6 +48,8 @@ public:
 	Vec n;
 	Color color;
 	bool damier;
+	float opacity;
+	float rn;
 };
 
 
